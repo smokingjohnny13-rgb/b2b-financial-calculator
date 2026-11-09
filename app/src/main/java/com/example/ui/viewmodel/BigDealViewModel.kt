@@ -71,6 +71,9 @@ import com.example.service.PdfExportService
 import com.example.service.CsvExportService
 import com.example.util.toCleanDouble
 import com.example.util.toCleanInt
+import android.graphics.Bitmap
+import com.example.data.ai.CommercialOcrScanner
+import com.example.data.ai.OcrExtractedDealData
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1594,6 +1597,96 @@ class BigDealViewModel(
 
     fun runLocalAudit() {
         runExpressAudit(forceLocal = true)
+    }
+
+    // 14. AI OCR Document & Price List Scanner (Firebase AI Logic Gemini 3.8 Flash)
+    private val commercialOcrScanner = CommercialOcrScanner()
+    val isOcrScanning = MutableStateFlow(false)
+    val ocrScanResult = MutableStateFlow<OcrExtractedDealData?>(null)
+    val ocrError = MutableStateFlow<String?>(null)
+    val isOcrDialogOpen = MutableStateFlow(false)
+
+    fun openOcrDialog() {
+        ocrError.value = null
+        isOcrDialogOpen.value = true
+    }
+
+    fun closeOcrDialog() {
+        isOcrDialogOpen.value = false
+    }
+
+    fun scanDocumentBitmap(bitmap: Bitmap) {
+        viewModelScope.launch {
+            isOcrScanning.value = true
+            ocrError.value = null
+            ocrScanResult.value = null
+
+            val result = commercialOcrScanner.scanDocumentImage(bitmap)
+            result.fold(
+                onSuccess = { data ->
+                    isOcrScanning.value = false
+                    ocrScanResult.value = data
+                },
+                onFailure = { error ->
+                    isOcrScanning.value = false
+                    val msg = error.localizedMessage ?: "OCR scanning failed"
+                    ocrError.value = msg
+                    _userMessage.emit(str("OCR error: $msg", "Ошибка OCR: $msg", appLanguage.value))
+                }
+            )
+        }
+    }
+
+    fun applyOcrExtractedData(data: OcrExtractedDealData) {
+        if (data.clientName.isNotBlank()) {
+            clientName.value = data.clientName
+        }
+        data.shelfPriceRsp?.let {
+            waterfallRsp.value = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.2f", it)
+            dealApprovalSellingPrice.value = waterfallRsp.value
+        }
+        data.vatRatePct?.let {
+            waterfallVat.value = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.1f", it)
+        }
+        data.retailerMarginPct?.let {
+            waterfallRetailerMargin.value = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.1f", it)
+        }
+        data.frontDiscountPct?.let {
+            val s = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.1f", it)
+            waterfallFrontDiscount.value = s
+            dealApprovalDiscountPct.value = s
+        }
+        data.backBonusPct?.let {
+            val s = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.1f", it)
+            waterfallBackBonus.value = s
+            dealApprovalBonusPct.value = s
+        }
+        data.logisticsCostPerUnit?.let {
+            waterfallLogistics.value = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.2f", it)
+        }
+        data.supplierCogs?.let {
+            val s = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.2f", it)
+            waterfallCogs.value = s
+            dealApprovalCostPrice.value = s
+            marginCostInput.value = s
+        }
+        data.paymentTermsDays?.let {
+            dealApprovalPaymentDays.value = it.toString()
+            termsDays.value = it.toString()
+        }
+        data.contractVolumeUnits?.let {
+            dealApprovalVolumeUnits.value = it.toString()
+            promoBaseVolume.value = it.toString()
+        }
+
+        updateWaterfallCalculations()
+        recalculateDealScoring()
+        updatePaymentTermsCalculations()
+        isOcrDialogOpen.value = false
+
+        viewModelScope.launch {
+            _userMessage.emit(str("OCR terms applied to Deal Desk!", "Коммерческие условия OCR применены к сделке!", appLanguage.value))
+        }
     }
 
     // 14. Deal Approval, Deal Scoring (Traffic Light) & Client Negotiation History

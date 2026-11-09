@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Tests-52%20Passed%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-56%20Passed%20(100%25)-brightgreen.svg)]()
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20MVVM%20%2B%20Offline--First-orange.svg)]()
 [![AI Engine](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200ms%20Offline-blueviolet.svg)]()
 [![Reports](https://img.shields.io/badge/Reports-2--Page%20Vector%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
@@ -189,6 +189,12 @@ Native on-device spreadsheet generator with UTF-8 BOM (`\uFEFF`) and RFC 4180 es
 - **Structured 3-Thesis Output**: Margin traps, Working capital risk, KAM counter-offer playbook;
 - **Zero-Failure Guarantee**: Automatically falls back to local engine if network fails.
 
+### 14. Multimodal Commercial Document OCR Scanner (Gemini 3.8 Flash)
+1-tap AI camera & gallery scanner in the top toolbar and Price Waterfall header:
+- **Direct Document Digitization**: Extracts commercial terms from camera snapshots or Android Photo Picker gallery photos (contracts, specifications, purchase orders, invoices, and discount agreements);
+- **Structured JSON Schema Extraction**: Accurately recognizes Shelf RSP, VAT rate %, Retailer Margin %, Front On-Invoice Discount %, Back Retro-Rebates %, Logistics per unit, Supplier COGS, Payment Deferral Days, Volume Quantum, and Currency;
+- **1-Click Deal Desk Transfer**: Injects all extracted commercial parameters directly into the Price Waterfall, Deal Approval Scoring, and Payment Terms engines without manual data entry.
+
 ---
 
 ## Technical Architecture & Code Quality
@@ -196,7 +202,7 @@ Native on-device spreadsheet generator with UTF-8 BOM (`\uFEFF`) and RFC 4180 es
 ```
 com.example
 ├── data
-│   ├── ai           # AI Deal Risk Auditor (Firebase AI Logic + 0ms Offline Heuristics)
+│   ├── ai           # AI Deal Risk Auditor & Multimodal Commercial OCR Scanner (Firebase AI Logic)
 │   ├── model        # Immutable Kotlin Data Models (SavedDeal, AmortizationSummary, LandedCost)
 │   └── repository   # AuthRepository & DealRepository (Firestore + Cache + Credential Manager)
 ├── domain
@@ -205,7 +211,7 @@ com.example
 ├── service          # Export Engines: PdfExportService (2-Page Vector PDF) & CsvExportService (UTF-8 BOM)
 ├── util             # NumberUtils (Safe localized decimal parsing for comma/dot keyboards)
 └── ui
-    ├── components   # Modular Material 3 Cards (Tornado, GiveGet, CashGap, Waterfall)
+    ├── components   # Modular Material 3 Cards (CommercialOcrDialog, Tornado, GiveGet, CashGap, Waterfall)
     ├── screens      # 6 Root Screens (Margin, Financing, Pipeline, Landed, Vault, Analytics)
     ├── theme        # Obsidian Executive Dark & Nordic Light Slate (Dynamic Tokens)
     └── viewmodel    # BigDealViewModel (Reactive StateFlow, Safe Decimals & Coroutines)

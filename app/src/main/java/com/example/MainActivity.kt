@@ -37,9 +37,11 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Verified
 import com.example.ui.components.AiAuditUiState
 import com.example.ui.components.AiDealAuditDialog
+import com.example.ui.components.CommercialOcrDialog
 import com.example.ui.components.FinancialFormulaDialog
 import com.example.util.configureAppCheck
 import androidx.compose.material3.Button
@@ -205,6 +207,14 @@ fun BigDealAppRoot(
         )
     }
 
+    val isOcrDialogOpen by viewModel.isOcrDialogOpen.collectAsState()
+    if (isOcrDialogOpen) {
+        CommercialOcrDialog(
+            viewModel = viewModel,
+            onDismiss = { viewModel.closeOcrDialog() }
+        )
+    }
+
     CompositionLocalProvider(LocalAppLanguage provides currentLanguage) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -315,6 +325,21 @@ fun BigDealAppRoot(
                                 Icon(
                                     imageVector = Icons.Default.Functions,
                                     contentDescription = tr("Formulas & Playbook", "Формулы и подсказки"),
+                                    tint = ElectricCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // Commercial Document OCR Scanner Button
+                            IconButton(
+                                onClick = { viewModel.openOcrDialog() },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("action_open_ocr")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DocumentScanner,
+                                    contentDescription = tr("Scan Commercial Document", "Скан накладной/спецификации"),
                                     tint = ElectricCyan,
                                     modifier = Modifier.size(18.dp)
                                 )

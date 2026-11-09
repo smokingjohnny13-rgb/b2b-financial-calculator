@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/Платформа-Android%208.0%2B%20(API%2026%2B)-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/Интерфейс-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Тесты-52%20Пройдено%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Тесты-56%20Пройдено%20(100%25)-brightgreen.svg)]()
 [![Архитектура](https://img.shields.io/badge/Архитектура-Clean%20%2B%20MVVM%20%2B%20Offline--First-orange.svg)]()
 [![AI Движок](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200мс%20Офлайн-blueviolet.svg)]()
 [![Отчеты](https://img.shields.io/badge/Отчеты-2--стр.%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
@@ -189,6 +189,12 @@ $$\text{Volume Lift}\% = \frac{d\%}{\text{Gross Margin}\% - d\%} \times 100\%$$
 - **3 ключевых вывода**: скрытые ловушки маржи, риски ликвидности и скрипт встречных требований для КАМа;
 - **100% надежность**: автоматический переход на локальный движок при отсутствии сети.
 
+### 14. Мультимодальный OCR-сканер коммерческих документов (Gemini 3.8 Flash)
+Кнопка сканирования на верхней панели и в карточке «Водопад цен (Net-Net)»:
+- **Мгновенная оцифровка документов**: распознавание коммерческих условий по фото с камеры или из галереи смартфона (спецификации, прайс-листы, накладные, протоколы разногласий и доп. соглашения сетей);
+- **Структурированная JSON-схема**: автоматическое извлечение РРЦ (полочной цены), ставки НДС %, наценки сети %, скидки в накладной %, ретро-бонусов %, логистики до РЦ, себестоимости, отсрочки платежа (в днях), квантов поставки и валюты;
+- **Перенос в сделку в 1 клик**: мгновенно применяет распознанные параметры в «Водопад цен», скоринг «Светофор» и расчет стоимости отсрочки без ручного ввода.
+
 ---
 
 ## Архитектура и качество кода
@@ -196,7 +202,7 @@ $$\text{Volume Lift}\% = \frac{d\%}{\text{Gross Margin}\% - d\%} \times 100\%$$
 ```
 com.example
 ├── data
-│   ├── ai           # AI-аудитор (Firebase AI Logic + 0мс офлайн-эвристики)
+│   ├── ai           # AI-аудитор и мультимодальный OCR-сканер (Firebase AI Logic + офлайн)
 │   ├── model        # Иммутабельные модели данных Kotlin (SavedDeal, Amortization, LandedCost)
 │   └── repository   # AuthRepository и DealRepository (Firestore + Cache + Credential Manager)
 ├── domain
@@ -205,7 +211,7 @@ com.example
 ├── service          # Экспорт: PdfExportService (2-стр. PDF) и CsvExportService (Excel/CSV BOM)
 ├── util             # NumberUtils (безопасный парсинг чисел с поддержкой запятых)
 └── ui
-    ├── components   # Модульные карточки Material 3 (Tornado, GiveGet, CashGap, Waterfall)
+    ├── components   # Модульные карточки Material 3 (CommercialOcrDialog, Tornado, GiveGet, CashGap, Waterfall)
     ├── screens      # 6 экранов (Маржа, Финансы, Воронка, Импорт, Сейф, Аналитика)
     ├── theme        # Темная тема Obsidian Executive и светлая Nordic Slate
     └── viewmodel    # BigDealViewModel (реактивные StateFlow и корутины)
