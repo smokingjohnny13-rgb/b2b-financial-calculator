@@ -40,7 +40,11 @@ data class AmortizationSummary(
     val graceInterestRatePct: Double = 0.0,
     val postGraceInterestRatePct: Double = 0.0,
     val totalGracePayments: Double = 0.0,
-    val totalPostGracePayments: Double = 0.0
+    val totalPostGracePayments: Double = 0.0,
+    val isFloatingRate: Boolean = false,
+    val floatingBenchmarkRatePct: Double = 0.0,
+    val floatingSpreadPct: Double = 0.0,
+    val effectiveAverageRatePct: Double = 0.0
 )
 
 data class LtvMetrics(

@@ -68,6 +68,9 @@ import com.example.domain.calculator.TornadoAnalysisResult
 import com.example.domain.calculator.DealScoringEngine
 import kotlinx.coroutines.flow.combine
 import com.example.service.PdfExportService
+import com.example.service.CsvExportService
+import com.example.util.toCleanDouble
+import com.example.util.toCleanInt
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -508,14 +511,14 @@ class BigDealViewModel(
 
     // --- Financing Calculation Triggers ---
     fun updateFinancing() {
-        val p = principalAmount.value.toDoubleOrNull() ?: 0.0
-        val down = downPayment.value.toDoubleOrNull() ?: 0.0
-        val r = annualInterestRate.value.toDoubleOrNull() ?: 0.0
-        val tenure = tenureMonths.value.toIntOrNull() ?: 12
+        val p = principalAmount.value.toCleanDouble() ?: 0.0
+        val down = downPayment.value.toCleanDouble() ?: 0.0
+        val r = annualInterestRate.value.toCleanDouble() ?: 0.0
+        val tenure = tenureMonths.value.toCleanInt() ?: 12
         val hasGrace = isGracePeriodEnabled.value
-        val graceTenure = graceTenureMonths.value.toIntOrNull() ?: 0
-        val graceRate = graceInterestRate.value.toDoubleOrNull() ?: 0.0
-        val postGraceRate = postGraceInterestRate.value.toDoubleOrNull() ?: r
+        val graceTenure = graceTenureMonths.value.toCleanInt() ?: 0
+        val graceRate = graceInterestRate.value.toCleanDouble() ?: 0.0
+        val postGraceRate = postGraceInterestRate.value.toCleanDouble() ?: r
 
         _amortization.value = AmortizationEngine.calculate(
             principal = p,
@@ -550,7 +553,7 @@ class BigDealViewModel(
     }
 
     fun updateCurrencyConversion() {
-        val p = principalAmount.value.toDoubleOrNull() ?: 0.0
+        val p = principalAmount.value.toCleanDouble() ?: 0.0
         convertedDealValue.value = CurrencyEngine.convert(
             amount = p,
             sourceCode = selectedCurrency.value,
@@ -566,14 +569,14 @@ class BigDealViewModel(
 
     // --- Landed Cost & Express Multipliers ---
     fun updateLandedCostCalculations() {
-        val fob = fobPriceInput.value.toDoubleOrNull() ?: 0.0
-        val targetLanded = targetLandedCostInput.value.toDoubleOrNull() ?: 0.0
-        val coeff = expressCoeffInput.value.toDoubleOrNull() ?: 1.48
+        val fob = fobPriceInput.value.toCleanDouble() ?: 0.0
+        val targetLanded = targetLandedCostInput.value.toCleanDouble() ?: 0.0
+        val coeff = expressCoeffInput.value.toCleanDouble() ?: 1.48
 
-        val logPct = customLogisticsPct.value.toDoubleOrNull() ?: 15.0
-        val dutyPct = customDutyPct.value.toDoubleOrNull() ?: 7.5
-        val vatPct = customVatPct.value.toDoubleOrNull() ?: 20.0
-        val brokerPct = customBrokerPct.value.toDoubleOrNull() ?: 2.5
+        val logPct = customLogisticsPct.value.toCleanDouble() ?: 15.0
+        val dutyPct = customDutyPct.value.toCleanDouble() ?: 7.5
+        val vatPct = customVatPct.value.toCleanDouble() ?: 20.0
+        val brokerPct = customBrokerPct.value.toCleanDouble() ?: 2.5
 
         if (isLandedReverseMode.value) {
             val result = LandedCostCalculator.calculateReverse(
@@ -625,10 +628,10 @@ class BigDealViewModel(
     }
 
     fun recalculateCustomCoefficient() {
-        val logPct = customLogisticsPct.value.toDoubleOrNull() ?: 15.0
-        val dutyPct = customDutyPct.value.toDoubleOrNull() ?: 7.5
-        val vatPct = customVatPct.value.toDoubleOrNull() ?: 20.0
-        val brokerPct = customBrokerPct.value.toDoubleOrNull() ?: 2.5
+        val logPct = customLogisticsPct.value.toCleanDouble() ?: 15.0
+        val dutyPct = customDutyPct.value.toCleanDouble() ?: 7.5
+        val vatPct = customVatPct.value.toCleanDouble() ?: 20.0
+        val brokerPct = customBrokerPct.value.toCleanDouble() ?: 2.5
         val computedCoeff = LandedCostCalculator.buildCoefficientFromComponents(
             logisticsPct = logPct,
             dutyPct = dutyPct,
@@ -640,8 +643,8 @@ class BigDealViewModel(
     }
 
     fun calibrateCoefficientFromPrices() {
-        val fob = fobPriceInput.value.toDoubleOrNull() ?: 0.0
-        val landed = targetLandedCostInput.value.toDoubleOrNull() ?: 0.0
+        val fob = fobPriceInput.value.toCleanDouble() ?: 0.0
+        val landed = targetLandedCostInput.value.toCleanDouble() ?: 0.0
         val calibrated = LandedCostCalculator.calibrateCoefficient(fob, landed)
         expressCoeffInput.value = calibrated.toString()
         selectedCategory.value = CargoCategory.CUSTOM
@@ -659,7 +662,7 @@ class BigDealViewModel(
     fun applyFobLandedCostToMargin(landedCost: Double) {
         val landedInt = landedCost.toInt()
         marginCostInput.value = landedInt.toString()
-        val currentPrice = marginPriceInput.value.toDoubleOrNull() ?: 0.0
+        val currentPrice = marginPriceInput.value.toCleanDouble() ?: 0.0
         if (currentPrice <= landedCost) {
             val suggestedPrice = (landedCost / (1.0 - 0.35)).toInt()
             marginPriceInput.value = suggestedPrice.toString()
@@ -687,10 +690,10 @@ class BigDealViewModel(
 
     // --- SaaS & Funnel Triggers ---
     fun updateLtvCalculations() {
-        val a = arpu.value.toDoubleOrNull() ?: 0.0
-        val m = grossMarginPct.value.toDoubleOrNull() ?: 70.0
-        val ch = churnRatePct.value.toDoubleOrNull() ?: 2.0
-        val c = cac.value.toDoubleOrNull() ?: 1000.0
+        val a = arpu.value.toCleanDouble() ?: 0.0
+        val m = grossMarginPct.value.toCleanDouble() ?: 70.0
+        val ch = churnRatePct.value.toCleanDouble() ?: 2.0
+        val c = cac.value.toCleanDouble() ?: 1000.0
         _ltvMetrics.value = LtvCalculator.calculate(
             arpu = a,
             grossMarginPct = m,
@@ -700,12 +703,12 @@ class BigDealViewModel(
     }
 
     fun updateFunnelCalculations() {
-        val leads = funnelLeads.value.toIntOrNull() ?: 0
-        val mqls = funnelMqls.value.toIntOrNull() ?: 0
-        val sqls = funnelSqls.value.toIntOrNull() ?: 0
-        val opps = funnelOpps.value.toIntOrNull() ?: 0
-        val won = funnelClosedWon.value.toIntOrNull() ?: 0
-        val dealVal = avgDealValue.value.toDoubleOrNull() ?: 0.0
+        val leads = funnelLeads.value.toCleanInt() ?: 0
+        val mqls = funnelMqls.value.toCleanInt() ?: 0
+        val sqls = funnelSqls.value.toCleanInt() ?: 0
+        val opps = funnelOpps.value.toCleanInt() ?: 0
+        val won = funnelClosedWon.value.toCleanInt() ?: 0
+        val dealVal = avgDealValue.value.toCleanDouble() ?: 0.0
         _funnelSummary.value = FunnelCalculator.calculate(
             leads = leads,
             mqls = mqls,
@@ -720,13 +723,13 @@ class BigDealViewModel(
     fun onMarginCostOrPriceChanged(newCost: String? = null, newPrice: String? = null) {
         newCost?.let { marginCostInput.value = it }
         newPrice?.let { marginPriceInput.value = it }
-        val cost = marginCostInput.value.toDoubleOrNull() ?: 0.0
-        val price = marginPriceInput.value.toDoubleOrNull() ?: 0.0
+        val cost = marginCostInput.value.toCleanDouble() ?: 0.0
+        val price = marginPriceInput.value.toCleanDouble() ?: 0.0
         _marginState.value = MarginMarkupSolver.fromCostAndPrice(cost, price)
     }
 
     fun applyMarginPercentPreset(marginPct: Double) {
-        val cost = marginCostInput.value.toDoubleOrNull() ?: 0.0
+        val cost = marginCostInput.value.toCleanDouble() ?: 0.0
         _marginState.value = MarginMarkupSolver.fromCostAndMargin(cost, marginPct)
         val sp = _marginState.value.sellingPrice
         marginPriceInput.value = if (sp % 1.0 == 0.0) sp.toInt().toString() else String.format(Locale.US, "%.2f", sp)
@@ -736,7 +739,7 @@ class BigDealViewModel(
     }
 
     fun applyMarkupPercentPreset(markupPct: Double) {
-        val cost = marginCostInput.value.toDoubleOrNull() ?: 0.0
+        val cost = marginCostInput.value.toCleanDouble() ?: 0.0
         _marginState.value = MarginMarkupSolver.fromCostAndMarkup(cost, markupPct)
         val sp = _marginState.value.sellingPrice
         marginPriceInput.value = if (sp % 1.0 == 0.0) sp.toInt().toString() else String.format(Locale.US, "%.2f", sp)
@@ -747,14 +750,14 @@ class BigDealViewModel(
 
     // --- PnL and ROI Triggers ---
     fun updatePnlCalculations() {
-        val rev = pnlRevenue.value.toDoubleOrNull() ?: 0.0
-        val cogs = pnlCogs.value.toDoubleOrNull() ?: 0.0
-        val opex = pnlOpex.value.toDoubleOrNull() ?: 0.0
-        val inv = pnlInvestment.value.toDoubleOrNull() ?: 0.0
-        val dur = pnlDurationMonths.value.toDoubleOrNull() ?: 12.0
-        val fixed = fixedCosts.value.toDoubleOrNull() ?: (opex * 0.7)
-        val pUnit = unitPrice.value.toDoubleOrNull() ?: 500.0
-        val cUnit = unitCost.value.toDoubleOrNull() ?: 150.0
+        val rev = pnlRevenue.value.toCleanDouble() ?: 0.0
+        val cogs = pnlCogs.value.toCleanDouble() ?: 0.0
+        val opex = pnlOpex.value.toCleanDouble() ?: 0.0
+        val inv = pnlInvestment.value.toCleanDouble() ?: 0.0
+        val dur = pnlDurationMonths.value.toCleanDouble() ?: 12.0
+        val fixed = fixedCosts.value.toCleanDouble() ?: (opex * 0.7)
+        val pUnit = unitPrice.value.toCleanDouble() ?: 500.0
+        val cUnit = unitCost.value.toCleanDouble() ?: 150.0
 
         _pnlModel.value = PnlRoiEngine.calculate(
             revenue = rev,
@@ -775,10 +778,10 @@ class BigDealViewModel(
     }
 
     fun updateTornadoCalculations() {
-        val rev = pnlRevenue.value.toDoubleOrNull() ?: 0.0
-        val cogs = pnlCogs.value.toDoubleOrNull() ?: 0.0
-        val opex = pnlOpex.value.toDoubleOrNull() ?: 0.0
-        val discount = dealApprovalDiscountPct.value.toDoubleOrNull() ?: 5.0
+        val rev = pnlRevenue.value.toCleanDouble() ?: 0.0
+        val cogs = pnlCogs.value.toCleanDouble() ?: 0.0
+        val opex = pnlOpex.value.toCleanDouble() ?: 0.0
+        val discount = dealApprovalDiscountPct.value.toCleanDouble() ?: 5.0
         _tornadoResult.value = TornadoSensitivityEngine.calculate(
             revenue = rev,
             cogs = cogs,
@@ -804,9 +807,9 @@ class BigDealViewModel(
     // --- Deal Saving & PDF Generation ---
     fun saveCurrentDeal() {
         viewModelScope.launch {
-            val p = principalAmount.value.toDoubleOrNull() ?: 120000.0
-            val r = annualInterestRate.value.toDoubleOrNull() ?: 6.5
-            val tenure = tenureMonths.value.toIntOrNull() ?: 24
+            val p = principalAmount.value.toCleanDouble() ?: 120000.0
+            val r = annualInterestRate.value.toCleanDouble() ?: 6.5
+            val tenure = tenureMonths.value.toCleanInt() ?: 24
 
             val deal = SavedDeal(
                 title = dealTitle.value,
@@ -861,14 +864,14 @@ class BigDealViewModel(
 
     fun exportPdf(context: Context) {
         viewModelScope.launch {
-            val currentDealValue = (dealApprovalSellingPrice.value.toDoubleOrNull() ?: 100.0) * (dealApprovalVolumeUnits.value.toIntOrNull() ?: 1000)
+            val currentDealValue = (dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0) * (dealApprovalVolumeUnits.value.toCleanInt() ?: 1000)
             val deal = SavedDeal(
                 title = dealTitle.value,
                 clientName = clientName.value,
                 currencyCode = activeCurrency.value.code,
-                dealValue = if (currentDealValue > 0.0) currentDealValue else (principalAmount.value.toDoubleOrNull() ?: 120000.0),
-                interestRatePct = annualInterestRate.value.toDoubleOrNull() ?: 6.5,
-                tenureMonths = tenureMonths.value.toIntOrNull() ?: 24,
+                dealValue = if (currentDealValue > 0.0) currentDealValue else (principalAmount.value.toCleanDouble() ?: 120000.0),
+                interestRatePct = annualInterestRate.value.toCleanDouble() ?: 6.5,
+                tenureMonths = tenureMonths.value.toCleanInt() ?: 24,
                 frequency = paymentFrequency.value,
                 periodicPayment = _amortization.value.periodicPayment,
                 ltv = _ltvMetrics.value.ltv,
@@ -911,6 +914,60 @@ class BigDealViewModel(
                 _userMessage.emit(str("LinkedIn Executive Product Flyer generated successfully!", "Рекламная листовка для LinkedIn успешно создана!", appLanguage.value))
             }.onFailure { e ->
                 _userMessage.emit(str("Error generating flyer: ${e.localizedMessage}", "Ошибка создания листовки: ${e.localizedMessage}", appLanguage.value))
+            }
+        }
+    }
+
+    fun exportDealCsv(context: Context) {
+        viewModelScope.launch {
+            val currentDealValue = (dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0) * (dealApprovalVolumeUnits.value.toCleanInt() ?: 1000)
+            val deal = SavedDeal(
+                title = dealTitle.value,
+                clientName = clientName.value,
+                currencyCode = activeCurrency.value.code,
+                dealValue = if (currentDealValue > 0.0) currentDealValue else (principalAmount.value.toCleanDouble() ?: 120000.0),
+                interestRatePct = annualInterestRate.value.toCleanDouble() ?: 6.5,
+                tenureMonths = tenureMonths.value.toCleanInt() ?: 24,
+                frequency = paymentFrequency.value,
+                periodicPayment = _amortization.value.periodicPayment,
+                ltv = _ltvMetrics.value.ltv,
+                ltvCacRatio = _ltvMetrics.value.ltvCacRatio,
+                marginPct = _marginState.value.marginPct,
+                markupPct = _marginState.value.markupPct,
+                roiPct = _pnlModel.value.roiPct,
+                paybackMonths = _pnlModel.value.paybackMonths,
+                updatedAt = System.currentTimeMillis()
+            )
+
+            val result = CsvExportService.generateAndShareActiveDealCsv(
+                context = context,
+                deal = deal,
+                scoring = _dealScoringResult.value,
+                cashGap = _cashGapResult.value,
+                pnl = _pnlModel.value,
+                amortization = _amortization.value.schedule
+            )
+
+            result.onSuccess {
+                _userMessage.emit(str("CSV spreadsheet exported successfully!", "Финансовая модель CSV успешно экспортирована!", appLanguage.value))
+            }.onFailure { e ->
+                _userMessage.emit(str("Error exporting CSV: ${e.localizedMessage}", "Ошибка экспорта CSV: ${e.localizedMessage}", appLanguage.value))
+            }
+        }
+    }
+
+    fun exportVaultRegistryCsv(context: Context) {
+        viewModelScope.launch {
+            val deals = savedDeals.value
+            if (deals.isEmpty()) {
+                _userMessage.emit(str("No saved deals to export.", "Нет сохраненных сделок для экспорта.", appLanguage.value))
+                return@launch
+            }
+            val result = CsvExportService.generateAndShareVaultRegistryCsv(context, deals)
+            result.onSuccess {
+                _userMessage.emit(str("Deal registry exported (${deals.size} contracts)!", "Реестр сделок экспортирован (${deals.size} договоров)!", appLanguage.value))
+            }.onFailure { e ->
+                _userMessage.emit(str("Error exporting registry: ${e.localizedMessage}", "Ошибка экспорта реестра: ${e.localizedMessage}", appLanguage.value))
             }
         }
     }
@@ -980,13 +1037,13 @@ class BigDealViewModel(
 
     // --- Price Waterfall Triggers ---
     fun updateWaterfallCalculations() {
-        val rsp = waterfallRsp.value.toDoubleOrNull() ?: 100.0
-        val vat = waterfallVat.value.toDoubleOrNull() ?: 20.0
-        val retMargin = waterfallRetailerMargin.value.toDoubleOrNull() ?: 30.0
-        val frontDisc = waterfallFrontDiscount.value.toDoubleOrNull() ?: 5.0
-        val backBonus = waterfallBackBonus.value.toDoubleOrNull() ?: 8.0
-        val logistics = waterfallLogistics.value.toDoubleOrNull() ?: 3.5
-        val cogs = waterfallCogs.value.toDoubleOrNull() ?: 25.0
+        val rsp = waterfallRsp.value.toCleanDouble() ?: 100.0
+        val vat = waterfallVat.value.toCleanDouble() ?: 20.0
+        val retMargin = waterfallRetailerMargin.value.toCleanDouble() ?: 30.0
+        val frontDisc = waterfallFrontDiscount.value.toCleanDouble() ?: 5.0
+        val backBonus = waterfallBackBonus.value.toCleanDouble() ?: 8.0
+        val logistics = waterfallLogistics.value.toCleanDouble() ?: 3.5
+        val cogs = waterfallCogs.value.toCleanDouble() ?: 25.0
 
         _waterfallResult.value = PriceWaterfallEngine.calculate(
             shelfRspWithVat = rsp,
@@ -1001,7 +1058,7 @@ class BigDealViewModel(
 
     fun importCogsFromLandedCost() {
         val landed = _landedCostResult.value.landedCost
-        val unitCogs = if (landed > 500.0 && (waterfallRsp.value.toDoubleOrNull() ?: 100.0) < 500.0) {
+        val unitCogs = if (landed > 500.0 && (waterfallRsp.value.toCleanDouble() ?: 100.0) < 500.0) {
             landed / 1000.0
         } else {
             landed
@@ -1037,11 +1094,11 @@ class BigDealViewModel(
 
     // --- Promo Break-Even Triggers ---
     fun updatePromoCalculations() {
-        val price = promoBasePrice.value.toDoubleOrNull() ?: 50.0
-        val cost = promoUnitCost.value.toDoubleOrNull() ?: 30.0
-        val disc = promoDiscountPct.value.toDoubleOrNull() ?: 20.0
-        val vol = promoBaseVolume.value.toIntOrNull() ?: 1000
-        val simLift = promoSimulatedLift.value.toDoubleOrNull() ?: 50.0
+        val price = promoBasePrice.value.toCleanDouble() ?: 50.0
+        val cost = promoUnitCost.value.toCleanDouble() ?: 30.0
+        val disc = promoDiscountPct.value.toCleanDouble() ?: 20.0
+        val vol = promoBaseVolume.value.toCleanInt() ?: 1000
+        val simLift = promoSimulatedLift.value.toCleanDouble() ?: 50.0
 
         _promoResult.value = PromoBreakEvenEngine.calculate(
             regularPrice = price,
@@ -1065,10 +1122,10 @@ class BigDealViewModel(
 
     // --- Payment Terms Triggers ---
     fun updatePaymentTermsCalculations() {
-        val amt = termsDealAmount.value.toDoubleOrNull() ?: 100000.0
-        val days = termsDays.value.toIntOrNull() ?: 60
-        val rate = termsAnnualRate.value.toDoubleOrNull() ?: 18.0
-        val cashDisc = termsCashDiscount.value.toDoubleOrNull() ?: 2.0
+        val amt = termsDealAmount.value.toCleanDouble() ?: 100000.0
+        val days = termsDays.value.toCleanInt() ?: 60
+        val rate = termsAnnualRate.value.toCleanDouble() ?: 18.0
+        val cashDisc = termsCashDiscount.value.toCleanDouble() ?: 2.0
 
         _paymentTermsResult.value = PaymentTermsEngine.calculate(
             dealAmount = amt,
@@ -1079,7 +1136,7 @@ class BigDealViewModel(
     }
 
     fun importTermsFromDeal() {
-        val p = principalAmount.value.toDoubleOrNull() ?: 120000.0
+        val p = principalAmount.value.toCleanDouble() ?: 120000.0
         termsDealAmount.value = p.toInt().toString()
         updatePaymentTermsCalculations()
         viewModelScope.launch {
@@ -1149,10 +1206,10 @@ class BigDealViewModel(
     }
 
     fun updateMultiCreditCalculations() {
-        val amt = creditPrincipal.value.toDoubleOrNull() ?: 100000.0
-        val tenure = creditTenureMonths.value.toIntOrNull() ?: 12
-        val hedgeRate = creditHedgeCostPct.value.toDoubleOrNull() ?: 2.5
-        val fxShift = creditExpectedFxShiftPct.value.toDoubleOrNull() ?: 8.0
+        val amt = creditPrincipal.value.toCleanDouble() ?: 100000.0
+        val tenure = creditTenureMonths.value.toCleanInt() ?: 12
+        val hedgeRate = creditHedgeCostPct.value.toCleanDouble() ?: 2.5
+        val fxShift = creditExpectedFxShiftPct.value.toCleanDouble() ?: 8.0
         val isHedged = creditHedgeEnabled.value
         val currs = creditSelectedCurrencies.value
 
@@ -1179,8 +1236,8 @@ class BigDealViewModel(
     }
 
     fun importDealToMultiCredit() {
-        val p = principalAmount.value.toDoubleOrNull() ?: 120000.0
-        val t = tenureMonths.value.toIntOrNull() ?: 12
+        val p = principalAmount.value.toCleanDouble() ?: 120000.0
+        val t = tenureMonths.value.toCleanInt() ?: 12
         creditPrincipal.value = p.toInt().toString()
         creditTenureMonths.value = t.toString()
         updateMultiCreditCalculations()
@@ -1200,16 +1257,16 @@ class BigDealViewModel(
 
     // --- Cash Gap & Working Capital Modeler ---
     fun updateCashGapCalculations() {
-        val rev = cashGapRevenue.value.toDoubleOrNull() ?: 100000.0
-        val cogs = cashGapCogs.value.toDoubleOrNull() ?: 70000.0
-        val prepay = cashGapPrepaidPct.value.toDoubleOrNull() ?: 20.0
-        val dpo = cashGapSupplierDays.value.toIntOrNull() ?: 30
-        val dso = cashGapCustomerDays.value.toIntOrNull() ?: 60
-        val dio = cashGapInventoryDays.value.toIntOrNull() ?: 15
-        val rate = cashGapOverdraftRate.value.toDoubleOrNull() ?: 22.0
-        val advPct = cashGapFactoringAdvancePct.value.toDoubleOrNull() ?: 85.0
-        val feePct = cashGapFactoringFeePct.value.toDoubleOrNull() ?: 1.5
-        val factRate = cashGapFactoringRatePct.value.toDoubleOrNull() ?: 20.0
+        val rev = cashGapRevenue.value.toCleanDouble() ?: 100000.0
+        val cogs = cashGapCogs.value.toCleanDouble() ?: 70000.0
+        val prepay = cashGapPrepaidPct.value.toCleanDouble() ?: 20.0
+        val dpo = cashGapSupplierDays.value.toCleanInt() ?: 30
+        val dso = cashGapCustomerDays.value.toCleanInt() ?: 60
+        val dio = cashGapInventoryDays.value.toCleanInt() ?: 15
+        val rate = cashGapOverdraftRate.value.toCleanDouble() ?: 22.0
+        val advPct = cashGapFactoringAdvancePct.value.toCleanDouble() ?: 85.0
+        val feePct = cashGapFactoringFeePct.value.toCleanDouble() ?: 1.5
+        val factRate = cashGapFactoringRatePct.value.toCleanDouble() ?: 20.0
 
         _cashGapResult.value = CashGapEngine.calculate(
             dealRevenue = rev,
@@ -1226,7 +1283,7 @@ class BigDealViewModel(
     }
 
     fun importDealToCashGap() {
-        val p = principalAmount.value.toDoubleOrNull() ?: 100000.0
+        val p = principalAmount.value.toCleanDouble() ?: 100000.0
         cashGapRevenue.value = p.toInt().toString()
         val cogs = p * 0.70
         cashGapCogs.value = cogs.toInt().toString()
@@ -1238,13 +1295,13 @@ class BigDealViewModel(
 
     // --- FX Stress-Test & Margin Wipeout Threshold ---
     fun updateFxStressCalculations() {
-        val price = fxContractPrice.value.toDoubleOrNull() ?: 1000000.0
-        val foreignCost = fxCogsForeign.value.toDoubleOrNull() ?: 8000.0
+        val price = fxContractPrice.value.toCleanDouble() ?: 1000000.0
+        val foreignCost = fxCogsForeign.value.toCleanDouble() ?: 8000.0
         val curr = fxForeignCurrency.value
-        val spot = fxSpotRate.value.toDoubleOrNull() ?: 95.0
-        val hedgePct = fxHedgedPct.value.toDoubleOrNull() ?: 30.0
-        val hedgeR = fxHedgeRate.value.toDoubleOrNull() ?: 96.0
-        val domestic = fxDomesticCost.value.toDoubleOrNull() ?: 50000.0
+        val spot = fxSpotRate.value.toCleanDouble() ?: 95.0
+        val hedgePct = fxHedgedPct.value.toCleanDouble() ?: 30.0
+        val hedgeR = fxHedgeRate.value.toCleanDouble() ?: 96.0
+        val domestic = fxDomesticCost.value.toCleanDouble() ?: 50000.0
 
         _fxStressResult.value = FxStressTestEngine.calculate(
             contractPrice = price,
@@ -1274,11 +1331,11 @@ class BigDealViewModel(
 
     // --- Hurdle Rate / ROIC Guardrail ---
     fun updateHurdleRoicCalculations() {
-        val rev = hurdleDealRevenue.value.toDoubleOrNull() ?: 100000.0
-        val profit = hurdleNetProfit.value.toDoubleOrNull() ?: 7000.0
-        val capital = hurdleTiedUpCapital.value.toDoubleOrNull() ?: 65000.0
-        val days = hurdleCycleDays.value.toIntOrNull() ?: 90
-        val hurdle = hurdleCorporateRate.value.toDoubleOrNull() ?: 20.0
+        val rev = hurdleDealRevenue.value.toCleanDouble() ?: 100000.0
+        val profit = hurdleNetProfit.value.toCleanDouble() ?: 7000.0
+        val capital = hurdleTiedUpCapital.value.toCleanDouble() ?: 65000.0
+        val days = hurdleCycleDays.value.toCleanInt() ?: 90
+        val hurdle = hurdleCorporateRate.value.toCleanDouble() ?: 20.0
 
         _hurdleRoicResult.value = HurdleRoicEngine.calculate(
             dealRevenue = rev,
@@ -1290,7 +1347,7 @@ class BigDealViewModel(
     }
 
     fun importDealToHurdleRoic() {
-        val p = principalAmount.value.toDoubleOrNull() ?: 100000.0
+        val p = principalAmount.value.toCleanDouble() ?: 100000.0
         hurdleDealRevenue.value = p.toInt().toString()
         val marginPct = _marginState.value.marginPct.takeIf { it > 0 } ?: 8.0
         val profit = p * (marginPct / 100.0)
@@ -1305,8 +1362,8 @@ class BigDealViewModel(
 
     // --- KAM Negotiation Corridor & SLA ---
     fun updateKamCorridor() {
-        val price = kamBaseShelfPrice.value.toDoubleOrNull() ?: 100.0
-        val cogs = kamBaseCogs.value.toDoubleOrNull() ?: 60.0
+        val price = kamBaseShelfPrice.value.toCleanDouble() ?: 100.0
+        val cogs = kamBaseCogs.value.toCleanDouble() ?: 60.0
         _kamCorridorResult.value = KamNegotiationEngine.calculateCorridor(
             baseShelfPrice = price,
             baseCogs = cogs,
@@ -1332,10 +1389,10 @@ class BigDealViewModel(
     }
 
     fun updateKamSla() {
-        val deal = kamDealAmount.value.toDoubleOrNull() ?: 100000.0
-        val fillRate = kamFillRatePct.value.toDoubleOrNull() ?: 95.0
-        val penalty = kamPenaltyRatePct.value.toDoubleOrNull() ?: 12.0
-        val slot = kamTimeSlotPenalty.value.toDoubleOrNull() ?: 1500.0
+        val deal = kamDealAmount.value.toCleanDouble() ?: 100000.0
+        val fillRate = kamFillRatePct.value.toCleanDouble() ?: 95.0
+        val penalty = kamPenaltyRatePct.value.toCleanDouble() ?: 12.0
+        val slot = kamTimeSlotPenalty.value.toCleanDouble() ?: 1500.0
         val baseMargin = _kamCorridorResult.value.activeScenario.marginPct.takeIf { it > 0 } ?: 30.0
 
         _kamSlaResult.value = KamNegotiationEngine.calculateRetailSlaPenalty(
@@ -1361,7 +1418,7 @@ class BigDealViewModel(
             fxCurrencyCode = fxCurr,
             fxSafetyBufferPoints = fxBuffer,
             peakCashGapAmount = peakGap,
-            corporateWaccRatePct = hurdleCorporateRate.value.toDoubleOrNull() ?: 20.0
+            corporateWaccRatePct = hurdleCorporateRate.value.toCleanDouble() ?: 20.0
         )
     }
 
@@ -1397,9 +1454,9 @@ class BigDealViewModel(
         val disc = scenario.frontDiscountPct
         val bonus = scenario.backBonusPct
         val days = scenario.paymentDays
-        val wacc = hurdleCorporateRate.value.toDoubleOrNull() ?: 18.0
-        val vol = dealApprovalVolumeUnits.value.toIntOrNull() ?: 1000
-        val concessionVal = giveConcessionValue.value.toDoubleOrNull() ?: 30.0
+        val wacc = hurdleCorporateRate.value.toCleanDouble() ?: 18.0
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val concessionVal = giveConcessionValue.value.toCleanDouble() ?: 30.0
 
         _giveGetResult.value = GiveGetEngine.calculate(
             sellingPrice = price,
@@ -1416,10 +1473,10 @@ class BigDealViewModel(
 
     // --- Commercial Analyst: Trade-Off, Basket, Rebates ---
     fun updateTradeOff() {
-        val deal = tradeOffDealAmount.value.toDoubleOrNull() ?: 100000.0
-        val disc = tradeOffDiscountPct.value.toDoubleOrNull() ?: 3.0
-        val days = tradeOffDeferralDays.value.toIntOrNull() ?: 30
-        val rate = tradeOffAnnualRate.value.toDoubleOrNull() ?: 20.0
+        val deal = tradeOffDealAmount.value.toCleanDouble() ?: 100000.0
+        val disc = tradeOffDiscountPct.value.toCleanDouble() ?: 3.0
+        val days = tradeOffDeferralDays.value.toCleanInt() ?: 30
+        val rate = tradeOffAnnualRate.value.toCleanDouble() ?: 20.0
 
         _tradeOffResult.value = CommercialAnalystEngine.calculateTradeOff(
             dealAmount = deal,
@@ -1445,8 +1502,8 @@ class BigDealViewModel(
     }
 
     fun updateRebateSimulation() {
-        val vol = rebateActualVolume.value.toDoubleOrNull() ?: 120000.0
-        val margin = rebateBaseMarginPct.value.toDoubleOrNull() ?: 30.0
+        val vol = rebateActualVolume.value.toCleanDouble() ?: 120000.0
+        val margin = rebateBaseMarginPct.value.toCleanDouble() ?: 30.0
         _rebateSimulationResult.value = CommercialAnalystEngine.simulateRebateTiers(
             actualVolume = vol,
             baseGrossMarginPct = margin
@@ -1454,9 +1511,9 @@ class BigDealViewModel(
     }
 
     fun applyTradeOffToTerms() {
-        val days = tradeOffDeferralDays.value.toIntOrNull() ?: 30
-        val deal = tradeOffDealAmount.value.toDoubleOrNull() ?: 100000.0
-        val rate = tradeOffAnnualRate.value.toDoubleOrNull() ?: 20.0
+        val days = tradeOffDeferralDays.value.toCleanInt() ?: 30
+        val deal = tradeOffDealAmount.value.toCleanDouble() ?: 100000.0
+        val rate = tradeOffAnnualRate.value.toCleanDouble() ?: 20.0
         termsDays.value = days.toString()
         termsDealAmount.value = deal.toInt().toString()
         termsAnnualRate.value = rate.toString()
@@ -1573,13 +1630,13 @@ class BigDealViewModel(
     val dealScoringResult: StateFlow<DealScoringResult> = _dealScoringResult.asStateFlow()
 
     fun recalculateDealScoring() {
-        val sp = dealApprovalSellingPrice.value.toDoubleOrNull() ?: 100.0
-        val cp = dealApprovalCostPrice.value.toDoubleOrNull() ?: 55.0
-        val vol = dealApprovalVolumeUnits.value.toIntOrNull() ?: 1000
-        val disc = dealApprovalDiscountPct.value.toDoubleOrNull() ?: 0.0
-        val bonus = dealApprovalBonusPct.value.toDoubleOrNull() ?: 0.0
-        val days = dealApprovalPaymentDays.value.toIntOrNull() ?: 30
-        val rate = dealApprovalFinancingRate.value.toDoubleOrNull() ?: 18.0
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val disc = dealApprovalDiscountPct.value.toCleanDouble() ?: 0.0
+        val bonus = dealApprovalBonusPct.value.toCleanDouble() ?: 0.0
+        val days = dealApprovalPaymentDays.value.toCleanInt() ?: 30
+        val rate = dealApprovalFinancingRate.value.toCleanDouble() ?: 18.0
         val isRu = appLanguage.value == com.example.ui.i18n.AppLanguage.RU
 
         _dealScoringResult.value = DealScoringEngine.calculate(

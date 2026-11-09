@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Verified
 import com.example.ui.components.AiAuditUiState
 import com.example.ui.components.AiDealAuditDialog
@@ -476,6 +477,37 @@ fun BigDealAppRoot(
                                         onClick = {
                                             showPdfExportMenu = false
                                             viewModel.exportProductFlyerPdf(context)
+                                        }
+                                    )
+
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.TableChart,
+                                                    contentDescription = null,
+                                                    tint = ElectricCyan,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Column {
+                                                    Text(
+                                                        text = tr("Financial Model (CSV / Excel)", "Финансовая модель (CSV / Excel)"),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    Text(
+                                                        text = tr("Compatible with MS Excel & Sheets", "Открывается в MS Excel и Таблицах"),
+                                                        fontSize = 10.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            showPdfExportMenu = false
+                                            viewModel.exportDealCsv(context)
                                         }
                                     )
                                 }

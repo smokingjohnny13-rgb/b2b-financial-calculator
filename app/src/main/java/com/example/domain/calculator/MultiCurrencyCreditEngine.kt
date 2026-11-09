@@ -2,6 +2,7 @@ package com.example.domain.calculator
 
 import com.example.data.model.CurrencyRate
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.round
 
 data class CurrencyCreditLegInput(
@@ -121,35 +122,58 @@ object MultiCurrencyCreditEngine {
             val borrowRate = max(0.0, input.annualRatePct) / 100.0
             val hedgeCostRate = max(0.0, input.hedgeCostAnnualPct) / 100.0
 
-            // Simple interest for period (or linear credit cost)
-            val interestInCurrency = legPrincipalInCurrency * borrowRate * tenureYears
+            // Interest calculation:
+            // For standard trade finance (tenure <= 1.0 year), simple linear interest P * r * t matches commercial bank conventions.
+            // For prolonged facilities (tenure > 1.0 year), compound capitalization P * ((1 + r)^t - 1) accurately reflects prolonged cost.
+            val interestInCurrency = if (tenureYears <= 1.0) {
+                legPrincipalInCurrency * borrowRate * tenureYears
+            } else {
+                legPrincipalInCurrency * ((1.0 + borrowRate).pow(tenureYears) - 1.0)
+            }
             val totalRepaymentInCurrency = legPrincipalInCurrency + interestInCurrency
 
             // 1. Hedged Repayment:
             // Hedging fixes forward cross-rate on payment day, protecting completely against currency depreciation.
-            // Effective cost = Borrow Rate + Hedge Premium
+            // Effective cost = Borrow Rate + Hedge Premium (annualized)
             val effectiveHedgedRate = borrowRate + (if (input.isHedged && !input.currencyCode.equals(baseCurrencyCode, ignoreCase = true)) hedgeCostRate else 0.0)
-            val totalRepaymentInBaseHedged = legPrincipalInBase * (1.0 + effectiveHedgedRate * tenureYears)
+            val totalRepaymentInBaseHedged = if (tenureYears <= 1.0) {
+                legPrincipalInBase * (1.0 + effectiveHedgedRate * tenureYears)
+            } else {
+                legPrincipalInBase * (1.0 + effectiveHedgedRate).pow(tenureYears)
+            }
             val hedgeCostInBase = if (input.isHedged && !input.currencyCode.equals(baseCurrencyCode, ignoreCase = true)) {
-                legPrincipalInBase * hedgeCostRate * tenureYears
+                if (tenureYears <= 1.0) {
+                    legPrincipalInBase * hedgeCostRate * tenureYears
+                } else {
+                    legPrincipalInBase * ((1.0 + hedgeCostRate).pow(tenureYears) - 1.0)
+                }
             } else {
                 0.0
             }
 
             // 2. Unhedged Repayment:
-            // If currency shifts by expectedFxShiftPct (e.g. debt currency appreciates vs base currency, meaning debt costs more in base)
-            val fxShift = (input.expectedFxShiftPct / 100.0)
+            // Time-horizon compounded FX shift:
+            // Expected FX shift is annualized (% per annum). Over tenureYears, cumulative shift is (1 + shift)^t - 1.
+            val annualFxShift = input.expectedFxShiftPct / 100.0
+            val cumulativeFxShift = if (tenureYears > 0.0) {
+                (1.0 + annualFxShift).pow(tenureYears) - 1.0
+            } else {
+                0.0
+            }
+
             val endRateBasePerLeg = if (spotRate > 0.0) {
-                // Rate in base units per 1 currency unit
                 val basePerUnitStart = 1.0 / spotRate
-                // If base weakens / debt currency strengthens by fxShift, basePerUnitEnd increases
-                basePerUnitStart * (1.0 + fxShift)
+                basePerUnitStart * (1.0 + cumulativeFxShift)
             } else {
                 1.0
             }
 
             val totalRepaymentInBaseUnhedged = if (input.currencyCode.equals(baseCurrencyCode, ignoreCase = true)) {
-                legPrincipalInBase * (1.0 + borrowRate * tenureYears)
+                if (tenureYears <= 1.0) {
+                    legPrincipalInBase * (1.0 + borrowRate * tenureYears)
+                } else {
+                    legPrincipalInBase * (1.0 + borrowRate).pow(tenureYears)
+                }
             } else {
                 totalRepaymentInCurrency * endRateBasePerLeg
             }

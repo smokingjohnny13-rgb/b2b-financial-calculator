@@ -3,14 +3,14 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Tests-48%20Passed%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-52%20Passed%20(100%25)-brightgreen.svg)]()
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20MVVM%20%2B%20Offline--First-orange.svg)]()
 [![AI Engine](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200ms%20Offline-blueviolet.svg)]()
-[![Reports](https://img.shields.io/badge/Reports-Native%202--Page%20Vector%20PDF-red.svg)]()
+[![Reports](https://img.shields.io/badge/Reports-2--Page%20Vector%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
 
 [🇬🇧 English](README.md) | [🇷🇺 Читать на русском](README_RU.md)
 
-> **Eliminate margin leakage at the negotiation table.** NotaBigDeal is an offline-first, executive-grade financial calculation engine, pricing governance desk, and deal-structuring platform designed for Key Account Managers (KAMs), Commercial Directors, and CFOs. Structure Net-Net retail price waterfalls, balance buyer concessions with compensatory "Give-Get" trades, model working capital (NWC) and invoice factoring arbitrage, stress-test EBITDA with McKinsey Tornado charts, and export boardroom-ready 2-page PDF proposals directly from your Android smartphone — without laptops, spreadsheets, or broken formulas.
+> **Eliminate margin leakage at the negotiation table.** NotaBigDeal is an offline-first, executive-grade financial calculation engine, pricing governance desk, and deal-structuring workstation designed for Key Account Managers (KAMs), Commercial Directors, and CFOs. Structure Net-Net retail price waterfalls, balance buyer concessions with compensatory "Give-Get" trades, model working capital (NWC) and invoice factoring arbitrage, model continuous and floating-rate financing schedules, stress-test EBITDA with McKinsey Tornado charts, and export boardroom-ready 2-page PDF proposals and Excel/CSV financial models directly from your Android smartphone — without laptops, spreadsheets, or broken formulas.
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## Why NotaBigDeal?
 
-During high-stakes commercial negotiations with retail supermarket chains and enterprise enterprise procurement committees, million-dollar margin commitments are made in minutes. When a buyer demands:
+During high-stakes commercial negotiations with retail supermarket chains and enterprise procurement committees, million-dollar margin commitments are made in minutes. When a buyer demands:
 * an extra **+45 days payment deferral**;
 * an additional **5% on-invoice front discount**; and
 * an **8.5% off-invoice retro-rebate** with listing fees;
@@ -37,6 +37,7 @@ a commercial leader needs answers within seconds:
 2. **Working Capital & Carrying Cost**: How much cash is frozen in accounts receivable ($AR$), and does invoice factoring beat bank overdraft?
 3. **Required Counter-Trades ("Give-Get")**: Exactly how much volume lift or price adjustment must be demanded in return so corporate EBITDA is not destroyed?
 4. **Profit Sensitivity Leverage**: Is it safer to concede on price or volume? (The McKinsey model proves price defense is typically $2\text{x}$–$4\text{x}$ more powerful than chasing volume).
+5. **Funding Architecture**: How do floating benchmark rates (SOFR/EURIBOR/Central Bank Key Rate + spread) or multi-currency tranches affect long-term liquidity and cash flow?
 
 **NotaBigDeal** packages Wall Street financial modeling into an ergonomic, tactile, and responsive mobile app built with Jetpack Compose.
 
@@ -49,11 +50,11 @@ a commercial leader needs answers within seconds:
 │                                   NotaBigDeal Core Architecture                                  │
 ├───────────────────────────────┬──────────────────────────────────┬───────────────────────────────┤
 │    COMMERCIAL PRICING DESK    │    FINANCING & WORKING CAPITAL   │    GOVERNANCE & ANALYTICS     │
-│  • Retail Price Waterfall     │  • Net Working Capital (NWC)     │  • 2-Page Boardroom PDF       │
-│  • Give-Get Concession Engine │  • Cash Conversion Cycle (CCC)   │  • Deal Scoring Traffic Light │
-│  • Tornado Profit Sensitivity │  • Invoice Factoring Arbitrage   │  • Gemini 3.8 Flash AI Audit  │
-│  • Promo Break-Even Solver    │  • 2-Tier Grace Amortization     │  • Offline Formula Glossary   │
-│  • Landed Cost (FOB ➔ Whs)    │  • Multi-Currency Credit Basket  │  • Cloud Vault (Firestore)    │
+│  • Retail Price Waterfall     │  • Net Working Capital (NWC)     │  • Boardroom 2-Page Vector PDF│
+│  • Give-Get Concession Engine │  • Cash Conversion Cycle (CCC)   │  • Excel / CSV UTF-8 BOM Export│
+│  • Tornado Profit Sensitivity │  • Invoice Factoring Arbitrage   │  • Deal Scoring Traffic Light │
+│  • Promo Break-Even Solver    │  • Floating Rate & Grace Periods │  • Gemini 3.8 Flash AI Audit  │
+│  • Landed Cost (FOB ➔ Whs)    │  • Multi-Currency Debt Basket    │  • Cloud Vault (Firestore)    │
 └───────────────────────────────┴──────────────────────────────────┴───────────────────────────────┘
 ```
 
@@ -105,14 +106,22 @@ Evaluates contract EBITDA vulnerability to independent shifts ($\pm 5\%$ and $\p
 - **Price vs Volume Leverage Ratio**: Proves mathematically why defending shelf price is typically $2.0\text{x}$–$4.0\text{x}$ more powerful than pursuing volume concessions;
 - **Expandable KAM Negotiation Playbook**: Strategic rules for countering buyer price-slashing tactics.
 
-### 5. Commercial Financing, Two-Tier Grace Period & Debt Prolongation
-Structures capital equipment leasing, vendor financing, and structured installments:
+### 5. Commercial Financing, Floating Rates & Two-Tier Grace Amortization
+Structures capital equipment leasing, vendor financing, and long-term installments:
 - **5 Payment Frequencies**: Weekly (52/yr), Bi-Weekly (26/yr), Monthly (12/yr), Quarterly (4/yr), and Annually (1/yr);
+- **Continuous Uncapped Schedule**: Generates full period-by-period schedules (up to 20–30 years / 240–360 periods) without artificial truncation;
 - **Two-Tier Grace Period Amortization**:
   - Subsidized or 0% interest rate during moratorium periods ($1 \dots N_{grace}$);
   - Standard annuity amortization over the remaining tenure ($N_{grace}+1 \dots N_{total}$);
+- **Floating Rate Loan Modeling (Benchmark + Spread)**:
+  - Models floating benchmark index (SOFR, RUONIA, Central Bank Key Rate) plus bank spread;
+  - Configurable rate reset intervals (quarterly, semi-annually, annually) with annual rate trend shifts;
+  - Recalculates periodic PMT on outstanding principal on reset dates;
 - **Credit Prolongation Analyzer**: Evaluates month-to-month and week-to-week term extensions, contrasting installment relief (-47%) against total interest inflation (+96%);
-- **Multi-Currency Debt Basket**: Distributes principal across up to 4 currencies (USD, EUR, CNY, RUB, etc.) with forward currency hedging adjustments.
+- **Multi-Currency Debt Basket with Time-Horizon Compounding**:
+  - Distributes principal across up to 4 currencies (USD, EUR, CNY, RUB, etc.) with forward currency hedging adjustments;
+  - Time-scaled FX compounding: $(1 + \text{FX Shift})^{tenureYears} - 1$;
+  - Annual compound capitalization for multi-year facilities ($>1$ year).
 
 ### 6. Deal Approval Desk & Traffic Light Governance Corridor (BATNA)
 Automated commercial governance before signatures are exchanged:
@@ -163,7 +172,17 @@ Generates publication-quality vector PDF documents on-device via native `android
   - 3-signature executive sign-off block (Commercial Director, Head of Legal, CFO).
 - **LinkedIn Product Flyer (PDF)**: High-impact executive one-pager showcasing core modules, UI highlights, and CFO ROI metrics for LinkedIn outreach.
 
-### 12. Dual-Core AI Deal Risk Express Audit
+### 12. Boardroom-Grade Excel & CSV Spreadsheet Export (UTF-8 BOM)
+Native on-device spreadsheet generator with UTF-8 BOM (`\uFEFF`) and RFC 4180 escaping for seamless opening in Microsoft Excel and Google Sheets:
+- **Active Deal Underwriting Model**:
+  1. *Executive Metrics & Approval*: Net-Net Price, Margin %, Margin Erosion, Cost of Deferral, Risk Score;
+  2. *Net Working Capital (NWC) & Factoring Arbitrage P2*: DSO, DIO, DPO, CCC, AR/Inv/AP, advance rate, factoring fee, effective APR, and bank overdraft comparison;
+  3. *Contract P&L & Break-Even*: Gross Revenue, COGS, OPEX, EBITDA, Net Profit, ROI %, and Break-Even units and revenue;
+  4. *Financing Amortization Schedule*: Complete continuous schedule of periods, installment payments, principal repaid, interest paid, and remaining balance.
+- **Deal Vault Portfolio Registry**: One-click portfolio export with total value, weighted margin, and individual contract terms.
+- Native Android Share Sheet integration to dispatch directly to Google Drive, Telegram, WhatsApp, Gmail, or MS Excel.
+
+### 13. Dual-Core AI Deal Risk Express Audit
 1-tap deal audit button on the top toolbar:
 - **Cloud Engine**: Google Gemini 3.8 Flash via Firebase AI Logic;
 - **Deterministic Offline Engine (0ms)**: Instant heuristic financial audit providing 100% uptime in basements, flights, or air-gapped meeting rooms;
@@ -178,25 +197,27 @@ Generates publication-quality vector PDF documents on-device via native `android
 com.example
 ├── data
 │   ├── ai           # AI Deal Risk Auditor (Firebase AI Logic + 0ms Offline Heuristics)
-│   ├── model        # Immutable Kotlin Data Models (SavedDeal, Amortization, LandedCost)
+│   ├── model        # Immutable Kotlin Data Models (SavedDeal, AmortizationSummary, LandedCost)
 │   └── repository   # AuthRepository & DealRepository (Firestore + Cache + Credential Manager)
 ├── domain
-│   ├── calculator   # Pure Domain Math Engines (CashGap, GiveGet, Tornado, Waterfall, PnL)
+│   ├── calculator   # Pure Domain Math Engines (CashGap, GiveGet, Tornado, Waterfall, PnL, Amortization)
 │   └── model        # Financial Formula Glossary (Offline Definitions & KAM Tips)
-├── service          # Android Native PdfExportService (2-Page Vector A4 PDF & Flyer)
+├── service          # Export Engines: PdfExportService (2-Page Vector PDF) & CsvExportService (UTF-8 BOM)
+├── util             # NumberUtils (Safe localized decimal parsing for comma/dot keyboards)
 └── ui
     ├── components   # Modular Material 3 Cards (Tornado, GiveGet, CashGap, Waterfall)
     ├── screens      # 6 Root Screens (Margin, Financing, Pipeline, Landed, Vault, Analytics)
     ├── theme        # Obsidian Executive Dark & Nordic Light Slate (Dynamic Tokens)
-    └── viewmodel    # BigDealViewModel (Reactive StateFlow & Coroutines)
+    └── viewmodel    # BigDealViewModel (Reactive StateFlow, Safe Decimals & Coroutines)
 ```
 
 - **Clean Architecture & MVVM**: Unidirectional data flow with pure mathematical engines in `domain/calculator/` completely decoupled from Android framework dependencies;
+- **Resilient Localized Number Input**: Custom `toCleanDouble()` and `toCleanInt()` parsers seamlessly handling comma-based decimal inputs (`12,5`) and spaces across 100+ numeric fields;
 - **Material Design 3 (M3) Dual-Theming**:
   - **Obsidian Executive Dark**: Deep midnight palette (`#0B101D`) with emerald accents (`#10B981`) designed to reduce visual fatigue during evening sessions;
   - **Nordic Light Slate**: Soft glare-free paper palette (`#F4F6F9`) with crisp slate typography (`#0F172A`) for boardroom projectors and daylight;
-- **Zero Third-Party PDF Bloat**: Native Android vector canvas rendering with zero external PDF dependencies, zero memory leaks, and native `ACTION_SEND` intent sharing;
-- **Comprehensive Unit Testing**: 48 unit tests verifying financial math, amortization schedules, Tornado sensitivities, and factoring arbitrage.
+- **Zero Third-Party PDF/Excel Bloat**: Pure native vector canvas and byte-stream CSV generation with zero external heavy libraries, zero memory leaks, and native `ACTION_SEND` intent sharing;
+- **Comprehensive Unit Testing**: 52 unit tests verifying financial math, amortization schedules, Tornado sensitivities, factoring arbitrage, and CSV structures.
 
 ---
 
@@ -215,11 +236,11 @@ gradle assembleDebug
 ```
 
 ### Running Automated Verification Tests
-Execute the test suite verifying all financial algorithms, rounding guards, and edge cases:
+Execute the test suite verifying all financial algorithms, rounding guards, floating rates, and edge cases:
 ```bash
 gradle :app:testDebugUnitTest
 ```
-*(48 unit tests, 100% passing)*.
+*(52 unit tests, 100% passing)*.
 
 ---
 

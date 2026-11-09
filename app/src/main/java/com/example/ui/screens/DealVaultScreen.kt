@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
@@ -407,6 +409,28 @@ fun DealVaultScreen(
                             Text(tr("Save Model", "Сохранить"), fontSize = 12.sp)
                         }
                     }
+
+                    OutlinedButton(
+                        onClick = { viewModel.exportDealCsv(context) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("btn_export_deal_csv")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TableChart,
+                            contentDescription = null,
+                            tint = ElectricCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = tr("Export Financial Model (CSV / Excel)", "Экспорт финансовой модели (CSV / Excel)"),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -522,6 +546,28 @@ fun DealVaultScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold
                 )
+
+                if (savedDeals.isNotEmpty()) {
+                    TextButton(
+                        onClick = { viewModel.exportVaultRegistryCsv(context) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.testTag("btn_export_registry_csv")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TableChart,
+                            contentDescription = null,
+                            tint = ElectricCyan,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = tr("Export CSV Registry", "Выгрузить реестр в CSV"),
+                            color = ElectricCyan,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
         }
 
