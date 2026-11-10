@@ -298,7 +298,9 @@ fun KamNegotiationCard(
                                         text = if (active.isWalkAway) tr("RED LINE / LEAVE TABLE", "КРАСНАЯ ЧЕРТА / УХОД") else tr("ACCEPTABLE", "РАБОЧИЙ СЦЕНАРИЙ"),
                                         color = activeThemeColor,
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 10.sp
+                                        fontSize = 10.sp,
+                                        softWrap = false,
+                                        maxLines = 1
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
@@ -306,7 +308,9 @@ fun KamNegotiationCard(
                                     text = "${tr("Gross Profit", "Прибыль")}: ${viewModel.formatCurrency(active.grossProfit)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -315,11 +319,37 @@ fun KamNegotiationCard(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text("${tr("Shelf Price", "Цена полки")}: ${viewModel.formatCurrency(active.shelfPrice)}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${tr("Discounts", "Скидки сети")}: ${active.frontDiscountPct.toInt()}% + ${active.backBonusPct.toInt()}%", fontSize = 10.sp, color = GoldAccent)
-                            Text("${tr("Terms", "Отсрочка")}: ${active.paymentDays} ${tr("days", "дн.")}", fontSize = 10.sp, color = ElectricCyan)
+                            Text(
+                                text = "${tr("Shelf Price", "Цена полки")}: ${viewModel.formatCurrency(active.shelfPrice)}",
+                                fontSize = 9.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${tr("Discounts", "Скидки")}: ${active.frontDiscountPct.toInt()}% + ${active.backBonusPct.toInt()}%",
+                                fontSize = 9.5.sp,
+                                color = GoldAccent,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Text(
+                                text = "${tr("Terms", "Отсрочка")}: ${active.paymentDays} ${tr("days", "дн.")}",
+                                fontSize = 9.5.sp,
+                                color = ElectricCyan,
+                                modifier = Modifier.weight(0.9f),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End
+                            )
                         }
 
                         // Apply to Deal button
@@ -653,11 +683,37 @@ fun KamNegotiationCard(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text("${tr("Delivered", "Поставлено")}: ${viewModel.formatCurrency(slaResult.deliveredAmount)}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${tr("Underdelivered", "Недопоставка")}: ${viewModel.formatCurrency(slaResult.underdeliveredAmount)}", fontSize = 10.sp, color = GoldAccent)
-                            Text("${tr("Paper Margin", "Маржа на бумаге")}: ${slaResult.baseGrossMarginPct}%", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "${tr("Delivered", "Поставлено")}: ${viewModel.formatCurrency(slaResult.deliveredAmount)}",
+                                fontSize = 9.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${tr("Underdelivered", "Недопоставка")}: ${viewModel.formatCurrency(slaResult.underdeliveredAmount)}",
+                                fontSize = 9.5.sp,
+                                color = GoldAccent,
+                                modifier = Modifier.weight(1.1f),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Text(
+                                text = "${tr("Paper", "На бумаге")}: ${slaResult.baseGrossMarginPct}%",
+                                fontSize = 9.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(0.9f),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End
+                            )
                         }
                     }
                 }

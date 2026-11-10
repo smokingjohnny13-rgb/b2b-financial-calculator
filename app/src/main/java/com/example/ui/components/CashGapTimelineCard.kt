@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.i18n.tr
@@ -511,13 +512,19 @@ fun CashGapTimelineCard(
                                     text = tr("NET WORKING CAPITAL (NWC)", "ЧИСТЫЙ ОБОРОТНЫЙ КАПИТАЛ (NWC)"),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = ElectricCyan
+                                    color = ElectricCyan,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "NWC = ${viewModel.formatCurrency(result.netWorkingCapital)}",
+                                    text = "NWC: ${viewModel.formatCurrency(result.netWorkingCapital)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Black,
-                                    color = GoldAccent
+                                    color = GoldAccent,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
                             }
 
@@ -525,7 +532,7 @@ fun CashGapTimelineCard(
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 // AR
                                 Box(
@@ -533,19 +540,26 @@ fun CashGapTimelineCard(
                                         .weight(1f)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(ExecutiveSurfaceVariant)
-                                        .padding(8.dp)
+                                        .padding(horizontal = 6.dp, vertical = 8.dp)
                                 ) {
                                     Column {
                                         Text(
                                             text = "+AR (${result.customerPayDays}d DSO)",
                                             fontSize = 9.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = viewModel.formatCurrency(result.accountsReceivable),
-                                            fontSize = 11.sp,
+                                            fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -555,19 +569,26 @@ fun CashGapTimelineCard(
                                         .weight(1f)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(ExecutiveSurfaceVariant)
-                                        .padding(8.dp)
+                                        .padding(horizontal = 6.dp, vertical = 8.dp)
                                 ) {
                                     Column {
                                         Text(
                                             text = "+Inv (${result.inventoryDays}d DIO)",
                                             fontSize = 9.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = viewModel.formatCurrency(result.inventoryValue),
-                                            fontSize = 11.sp,
+                                            fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -577,19 +598,26 @@ fun CashGapTimelineCard(
                                         .weight(1f)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(ExecutiveSurfaceVariant)
-                                        .padding(8.dp)
+                                        .padding(horizontal = 6.dp, vertical = 8.dp)
                                 ) {
                                     Column {
                                         Text(
                                             text = "-AP (${result.supplierPayDays}d DPO)",
                                             fontSize = 9.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = "-${viewModel.formatCurrency(result.accountsPayable)}",
-                                            fontSize = 11.sp,
+                                            fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFFF5252)
+                                            color = Color(0xFFFF5252),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -675,7 +703,10 @@ fun CashGapTimelineCard(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.SwapHoriz,
                                         contentDescription = null,
@@ -687,15 +718,27 @@ fun CashGapTimelineCard(
                                         text = tr("ARBITRAGE STRATEGY VERDICT", "ВЕРДИКТ ФИНАНСОВОГО АРБИТРАЖА"),
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (result.isFactoringCheaper) EmeraldPrimary else ElectricCyan
+                                        color = if (result.isFactoringCheaper) EmeraldPrimary else ElectricCyan,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                                Text(
-                                    text = if (result.isFactoringCheaper) tr("FACTORING WINS", "ФАКТОРИНГ ВЫГОДНЕЕ") else tr("OVERDRAFT WINS", "ОВЕРДРАФТ ВЫГОДНЕЕ"),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = if (result.isFactoringCheaper) EmeraldPrimary else ElectricCyan
-                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background((if (result.isFactoringCheaper) EmeraldPrimary else ElectricCyan).copy(alpha = 0.2f))
+                                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = if (result.isFactoringCheaper) tr("FACTORING WINS", "ФАКТОРИНГ ВЫГОДНЕЕ") else tr("OVERDRAFT WINS", "ОВЕРДРАФТ ВЫГОДНЕЕ"),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (result.isFactoringCheaper) EmeraldPrimary else ElectricCyan,
+                                        softWrap = false,
+                                        maxLines = 1
+                                    )
+                                }
                             }
 
                             Text(

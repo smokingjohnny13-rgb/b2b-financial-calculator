@@ -167,7 +167,7 @@ fun TornadoSensitivityCard(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
                         Box(
                             modifier = Modifier
@@ -226,55 +226,81 @@ fun TornadoSensitivityCard(
                 }
             }
 
-            // Legend Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Legend: Base EBITDA Anchor + Downside/Upside Endpoints
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(CrimsonAlert)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = tr("Downside (-${tornadoResult.deltaPct.toInt()}%)", "Ухудшение (-${tornadoResult.deltaPct.toInt()}%)"),
+                        text = "${tr("Base EBITDA", "Базовая EBITDA")}: ${formatAmount(tornadoResult.baseEbitda)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = CrimsonAlert,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        softWrap = false,
+                        maxLines = 1
                     )
                 }
 
-                Text(
-                    text = "${tr("Base EBITDA", "Базовая EBITDA")}: ${formatAmount(tornadoResult.baseEbitda)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(CrimsonAlert)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = tr("Downside (-${tornadoResult.deltaPct.toInt()}%)", "Ухудшение (-${tornadoResult.deltaPct.toInt()}%)"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CrimsonAlert,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            softWrap = false,
+                            maxLines = 1
+                        )
+                    }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(EmeraldPrimary)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = tr("Upside (+${tornadoResult.deltaPct.toInt()}%)", "Улучшение (+${tornadoResult.deltaPct.toInt()}%)"),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = EmeraldPrimary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(EmeraldPrimary)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = tr("Upside (+${tornadoResult.deltaPct.toInt()}%)", "Улучшение (+${tornadoResult.deltaPct.toInt()}%)"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = EmeraldPrimary,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            softWrap = false,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
 
@@ -464,32 +490,35 @@ private fun TornadoFactorItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(18.dp),
+                .height(22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left Half: Downside Bar (growing towards right to center)
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(14.dp),
+                    .height(18.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(relativeFraction)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp))
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp))
                         .background(CrimsonAlert.copy(alpha = 0.85f))
-                        .padding(end = 4.dp),
+                        .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.CenterEnd
                 ) {
-                    if (relativeFraction > 0.35f) {
+                    if (relativeFraction > 0.20f) {
                         Text(
                             text = "-${factor.ebitdaImpactPct.toInt()}%",
                             color = Color.White,
-                            fontSize = 9.sp,
+                            fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 11.sp,
+                            softWrap = false,
+                            maxLines = 1
                         )
                     }
                 }
@@ -499,7 +528,7 @@ private fun TornadoFactorItem(
             Box(
                 modifier = Modifier
                     .width(2.dp)
-                    .height(18.dp)
+                    .height(22.dp)
                     .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
             )
 
@@ -507,25 +536,28 @@ private fun TornadoFactorItem(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(14.dp),
+                    .height(18.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(relativeFraction)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(topEnd = 5.dp, bottomEnd = 5.dp))
                         .background(EmeraldPrimary.copy(alpha = 0.85f))
-                        .padding(start = 4.dp),
+                        .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    if (relativeFraction > 0.35f) {
+                    if (relativeFraction > 0.20f) {
                         Text(
                             text = "+${factor.ebitdaImpactPct.toInt()}%",
                             color = Color.White,
-                            fontSize = 9.sp,
+                            fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 11.sp,
+                            softWrap = false,
+                            maxLines = 1
                         )
                     }
                 }

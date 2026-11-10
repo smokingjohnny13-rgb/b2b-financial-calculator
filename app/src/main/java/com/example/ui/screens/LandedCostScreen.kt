@@ -65,6 +65,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CargoCategory
@@ -550,12 +551,18 @@ fun LandedCostScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Text(
                                         text = cat.title(currentLang),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
+                                        color = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     if (cat == CargoCategory.INDUSTRIAL || cat == CargoCategory.UNIVERSAL) {
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -563,38 +570,56 @@ fun LandedCostScreen(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(4.dp))
                                                 .background(GoldAccent.copy(alpha = 0.2f))
-                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
-                                            Text(tr("Ideal benchmark", "Идеальный средний"), fontSize = 8.sp, color = GoldAccent, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                text = tr("Benchmark", "Эталон"),
+                                                fontSize = 9.sp,
+                                                color = GoldAccent,
+                                                fontWeight = FontWeight.Bold,
+                                                softWrap = false,
+                                                maxLines = 1
+                                            )
                                         }
                                     }
                                 }
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = cat.desc(currentLang),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "${tr("Freight", "Логистика")} ≈ ${cat.avgLogisticsPct}% | ${tr("Duty", "Пошлина")} ≈ ${cat.avgDutyPct}%",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                    fontSize = 10.sp
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
+
+                            Spacer(modifier = Modifier.width(10.dp))
 
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     text = "${cat.minCoeff} – ${cat.maxCoeff}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Black,
-                                    color = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
+                                    color = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.onSurface,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
                                 Text(
                                     text = tr("Multiplier", "Коэффициент"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 9.sp
+                                    fontSize = 9.sp,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
                             }
                         }

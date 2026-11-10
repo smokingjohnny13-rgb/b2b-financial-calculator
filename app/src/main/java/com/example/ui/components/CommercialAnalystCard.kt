@@ -792,7 +792,9 @@ fun CommercialAnalystCard(
                                     color = GoldAccent,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
                                 Text(
                                     text = "-${viewModel.formatCurrency(rebateResult.rebateAmount)}",
