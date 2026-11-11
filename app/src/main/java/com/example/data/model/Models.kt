@@ -44,7 +44,13 @@ data class AmortizationSummary(
     val isFloatingRate: Boolean = false,
     val floatingBenchmarkRatePct: Double = 0.0,
     val floatingSpreadPct: Double = 0.0,
-    val effectiveAverageRatePct: Double = 0.0
+    val effectiveAverageRatePct: Double = 0.0,
+    // Custom Payment & Prepayment (Досрочное погашение)
+    val customPayment: Double? = null,
+    val isAccelerated: Boolean = false,
+    val acceleratedPeriods: Int = 0,
+    val periodsSaved: Int = 0,
+    val interestSaved: Double = 0.0
 )
 
 data class LtvMetrics(

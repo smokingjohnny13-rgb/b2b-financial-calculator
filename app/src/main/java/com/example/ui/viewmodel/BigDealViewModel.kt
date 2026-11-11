@@ -119,6 +119,7 @@ class BigDealViewModel(
     val graceTenureMonths = MutableStateFlow("6")
     val graceInterestRate = MutableStateFlow("0.0")
     val postGraceInterestRate = MutableStateFlow("12.0")
+    val customMonthlyPayment = MutableStateFlow("")
 
     private val _amortization = MutableStateFlow(
         AmortizationEngine.calculate(
@@ -522,6 +523,7 @@ class BigDealViewModel(
         val graceTenure = graceTenureMonths.value.toCleanInt() ?: 0
         val graceRate = graceInterestRate.value.toCleanDouble() ?: 0.0
         val postGraceRate = postGraceInterestRate.value.toCleanDouble() ?: r
+        val customPayment = customMonthlyPayment.value.toCleanDouble()
 
         _amortization.value = AmortizationEngine.calculate(
             principal = p,
@@ -532,9 +534,20 @@ class BigDealViewModel(
             hasGracePeriod = hasGrace,
             graceTenureMonths = graceTenure,
             graceInterestRatePct = graceRate,
-            postGraceInterestRatePct = postGraceRate
+            postGraceInterestRatePct = postGraceRate,
+            customPeriodicPayment = customPayment
         )
         updateCurrencyConversion()
+    }
+
+    fun setCustomMonthlyPayment(value: String) {
+        customMonthlyPayment.value = value
+        updateFinancing()
+    }
+
+    fun clearCustomMonthlyPayment() {
+        customMonthlyPayment.value = ""
+        updateFinancing()
     }
 
     fun toggleGracePeriod(enabled: Boolean) {

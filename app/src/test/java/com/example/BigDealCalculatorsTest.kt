@@ -780,6 +780,81 @@ class BigDealCalculatorsTest {
         assertEquals(0.0, zeroRes.factoringTotalCost, 0.01)
         assertEquals(0.0, zeroRes.factoringAprPct, 0.01)
     }
+
+    @Test
+    fun testCustomPaymentAcceleratedPayoffStandardLoan() {
+        val standard = AmortizationEngine.calculate(
+            principal = 120000.0,
+            annualInterestRatePct = 10.0,
+            tenureMonths = 24,
+            frequency = PaymentFrequency.MONTHLY
+        )
+        assertTrue(standard.periodicPayment > 5000.0)
+        assertEquals(24, standard.schedule.size)
+        assertEquals(false, standard.isAccelerated)
+
+        // Custom prepayment of 8,000 / month
+        val accelerated = AmortizationEngine.calculate(
+            principal = 120000.0,
+            annualInterestRatePct = 10.0,
+            tenureMonths = 24,
+            frequency = PaymentFrequency.MONTHLY,
+            customPeriodicPayment = 8000.0
+        )
+        assertTrue("Should be marked accelerated", accelerated.isAccelerated)
+        assertTrue("Periods should be fewer than 24", accelerated.acceleratedPeriods < 24)
+        assertEquals(24 - accelerated.acceleratedPeriods, accelerated.periodsSaved)
+        assertTrue("Interest saved should be positive", accelerated.interestSaved > 0.0)
+        assertEquals(0.0, accelerated.schedule.last().remainingBalance, 0.01)
+    }
+
+    @Test
+    fun testCustomPaymentAcceleratedPayoffGracePeriod() {
+        val standard = AmortizationEngine.calculate(
+            principal = 100000.0,
+            annualInterestRatePct = 10.0,
+            tenureMonths = 36,
+            hasGracePeriod = true,
+            graceTenureMonths = 12,
+            graceInterestRatePct = 0.01,
+            postGraceInterestRatePct = 10.0,
+            frequency = PaymentFrequency.MONTHLY
+        )
+        assertEquals(36, standard.schedule.size)
+        assertEquals(false, standard.isAccelerated)
+
+        // Prepayment of 4,500 / month
+        val accelerated = AmortizationEngine.calculate(
+            principal = 100000.0,
+            annualInterestRatePct = 10.0,
+            tenureMonths = 36,
+            hasGracePeriod = true,
+            graceTenureMonths = 12,
+            graceInterestRatePct = 0.01,
+            postGraceInterestRatePct = 10.0,
+            frequency = PaymentFrequency.MONTHLY,
+            customPeriodicPayment = 4500.0
+        )
+        assertTrue("Should be marked accelerated", accelerated.isAccelerated)
+        assertTrue("Periods should be fewer than 36", accelerated.acceleratedPeriods < 36)
+        assertTrue("Periods saved should be positive", accelerated.periodsSaved > 0)
+        assertTrue("Interest saved should be positive", accelerated.interestSaved > 1000.0)
+        assertEquals(0.0, accelerated.schedule.last().remainingBalance, 0.01)
+    }
+
+    @Test
+    fun testCustomPaymentBelowStandardDoesNotAccelerate() {
+        val summary = AmortizationEngine.calculate(
+            principal = 120000.0,
+            annualInterestRatePct = 10.0,
+            tenureMonths = 24,
+            frequency = PaymentFrequency.MONTHLY,
+            customPeriodicPayment = 2000.0 // less than ~5537 standard payment
+        )
+        assertEquals(false, summary.isAccelerated)
+        assertEquals(0, summary.periodsSaved)
+        assertEquals(0.0, summary.interestSaved, 0.01)
+    }
 }
 
 

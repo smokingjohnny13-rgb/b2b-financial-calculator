@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -33,6 +35,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Switch
@@ -104,6 +108,7 @@ fun FinancingFxScreen(
     val graceTenureMonths by viewModel.graceTenureMonths.collectAsState()
     val graceInterestRate by viewModel.graceInterestRate.collectAsState()
     val postGraceInterestRate by viewModel.postGraceInterestRate.collectAsState()
+    val customPaymentInput by viewModel.customMonthlyPayment.collectAsState()
 
     val baseCurrency by viewModel.selectedCurrency.collectAsState()
     val targetCurrency by viewModel.targetCurrency.collectAsState()
@@ -236,10 +241,17 @@ fun FinancingFxScreen(
                                         text = "${freqLocalizedName.uppercase()} ${tr("TWO-TIER INSTALLMENT", "ДВУХСТАВОЧНЫЙ ПЛАТЕЖ")}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        letterSpacing = 1.sp,
-                                        fontWeight = FontWeight.Bold
+                                        letterSpacing = 0.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
@@ -251,7 +263,9 @@ fun FinancingFxScreen(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = ElectricCyan,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 10.sp
+                                                fontSize = 10.sp,
+                                                softWrap = false,
+                                                maxLines = 1
                                             )
                                         }
                                         Box(
@@ -265,7 +279,9 @@ fun FinancingFxScreen(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = GoldAccent,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 10.sp
+                                                fontSize = 10.sp,
+                                                softWrap = false,
+                                                maxLines = 1
                                             )
                                         }
                                     }
@@ -349,9 +365,13 @@ fun FinancingFxScreen(
                                         text = "${freqLocalizedName.uppercase()} ${tr("INSTALLMENT", "ПЛАТЕЖ")}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        letterSpacing = 1.sp,
-                                        fontWeight = FontWeight.Bold
+                                        letterSpacing = 0.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
@@ -362,7 +382,9 @@ fun FinancingFxScreen(
                                             text = "${interestRate}% APR",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = EmeraldPrimary,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            softWrap = false,
+                                            maxLines = 1
                                         )
                                     }
                                 }
@@ -420,6 +442,76 @@ fun FinancingFxScreen(
                                         maxLines = 1,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.End
                                     )
+                                }
+                            }
+
+                            if (amortization.isAccelerated) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(EmeraldPrimary.copy(alpha = 0.12f))
+                                        .border(1.dp, EmeraldPrimary.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .testTag("card_accelerated_payoff")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Bolt,
+                                                contentDescription = null,
+                                                tint = EmeraldPrimary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Column {
+                                                Text(
+                                                    text = tr("ACCELERATED PAYOFF", "ДОСРОЧНОЕ ПОГАШЕНИЕ"),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = EmeraldPrimary,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 10.sp
+                                                )
+                                                Text(
+                                                    text = tr(
+                                                        "Paid off in ${amortization.acceleratedPeriods} periods (-${amortization.periodsSaved} periods)",
+                                                        "Срок: ${amortization.acceleratedPeriods} выплат (быстрее на ${amortization.periodsSaved})"
+                                                    ),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = tr("SAVED ON INTEREST", "ЭКОНОМИЯ НА %"),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = EmeraldPrimary,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                            )
+                                            Text(
+                                                text = "+${viewModel.formatCurrency(amortization.interestSaved)}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = EmeraldPrimary,
+                                                fontWeight = FontWeight.Black,
+                                                softWrap = false,
+                                                maxLines = 1,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -542,6 +634,34 @@ fun FinancingFxScreen(
                                     testTag = "input_tenure"
                                 )
                             }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FinancialInputField(
+                                    label = tr("Custom Monthly Payment (Early Payoff)", "Свой ежемесячный платеж (досрочно)"),
+                                    value = customPaymentInput,
+                                    onValueChange = { viewModel.setCustomMonthlyPayment(it) },
+                                    prefix = currencySym,
+                                    modifier = Modifier.weight(1f),
+                                    formulaId = "prepayment",
+                                    testTag = "input_custom_payment"
+                                )
+                                if (customPaymentInput.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { viewModel.clearCustomMonthlyPayment() },
+                                        modifier = Modifier.size(44.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Clear",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -644,6 +764,34 @@ fun FinancingFxScreen(
                                         modifier = Modifier.weight(1f),
                                         testTag = "input_post_grace_rate"
                                     )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    FinancialInputField(
+                                        label = tr("Custom Monthly Payment (During/Post Grace)", "Свой ежемесячный платеж (досрочно)"),
+                                        value = customPaymentInput,
+                                        onValueChange = { viewModel.setCustomMonthlyPayment(it) },
+                                        prefix = currencySym,
+                                        formulaId = "prepayment",
+                                        modifier = Modifier.weight(1f),
+                                        testTag = "input_grace_custom_payment"
+                                    )
+                                    if (customPaymentInput.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { viewModel.clearCustomMonthlyPayment() },
+                                            modifier = Modifier.size(44.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Clear",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
 
                                 // Quick Grace Presets
