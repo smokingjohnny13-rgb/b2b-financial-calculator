@@ -101,8 +101,8 @@ object CashGapEngine {
         val factoringInterest = advanceAmount * safeFactRate * (safeDso.toDouble() / 365.0)
         val totalFactCost = serviceFee + factoringInterest
 
-        val factApr = if (safeDso > 0 && safeRev > 0) {
-            (totalFactCost / safeRev) * (365.0 / safeDso.toDouble()) * 100.0
+        val factApr = if (safeDso > 0 && advanceAmount > 0) {
+            (totalFactCost / advanceAmount) * (365.0 / safeDso.toDouble()) * 100.0
         } else {
             0.0
         }

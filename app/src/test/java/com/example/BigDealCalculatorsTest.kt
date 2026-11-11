@@ -855,6 +855,58 @@ class BigDealCalculatorsTest {
         assertEquals(0, summary.periodsSaved)
         assertEquals(0.0, summary.interestSaved, 0.01)
     }
+
+    @Test
+    fun testDifferentiatedAmortizationScheme() {
+        val annuity = AmortizationEngine.calculate(
+            principal = 120000.0,
+            annualInterestRatePct = 12.0,
+            tenureMonths = 12,
+            frequency = PaymentFrequency.MONTHLY,
+            scheme = com.example.data.model.AmortizationScheme.ANNUITY
+        )
+        val diff = AmortizationEngine.calculate(
+            principal = 120000.0,
+            annualInterestRatePct = 12.0,
+            tenureMonths = 12,
+            frequency = PaymentFrequency.MONTHLY,
+            scheme = com.example.data.model.AmortizationScheme.DIFFERENTIATED
+        )
+
+        // Equal monthly principal repayment = 120,000 / 12 = 10,000
+        assertEquals(10000.0, diff.schedule[0].principal, 0.01)
+        assertEquals(10000.0, diff.schedule.last().principal, 0.01)
+
+        // First payment: 10,000 + 120,000 * 0.01 = 11,200
+        assertEquals(11200.0, diff.firstPeriodicPayment, 0.01)
+        // Last payment: 10,000 + 10,000 * 0.01 = 10,100
+        assertEquals(10100.0, diff.lastPeriodicPayment, 0.01)
+
+        // Differentiated total interest must be strictly lower than Annuity total interest
+        assertTrue(diff.totalInterest < annuity.totalInterest)
+        assertEquals(0.0, diff.schedule.last().remainingBalance, 0.01)
+    }
+
+    @Test
+    fun testActuarialIrrExactCalculation() {
+        // Two-tier grace facility: 0.01% for 12 months, then 8.5% for 24 months
+        val graceLoan = AmortizationEngine.calculate(
+            principal = 100000.0,
+            annualInterestRatePct = 8.5,
+            tenureMonths = 36,
+            hasGracePeriod = true,
+            graceTenureMonths = 12,
+            graceInterestRatePct = 0.01,
+            postGraceInterestRatePct = 8.5,
+            frequency = PaymentFrequency.MONTHLY
+        )
+
+        // IRR must be positive, greater than 0.01% and less than 8.5%
+        assertTrue("IRR should exceed grace rate", graceLoan.trueEffectiveAprPct > 0.01)
+        assertTrue("IRR should be below post-grace nominal rate", graceLoan.trueEffectiveAprPct < 8.5)
+        // Effective Annual Rate (compounded) must be >= nominal APR
+        assertTrue("EAR >= APR", graceLoan.effectiveAnnualRatePct >= graceLoan.trueEffectiveAprPct)
+    }
 }
 
 

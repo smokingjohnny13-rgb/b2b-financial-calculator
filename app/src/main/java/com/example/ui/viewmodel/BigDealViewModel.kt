@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.Locale
+import com.example.data.model.AmortizationScheme
 import com.example.data.model.AmortizationSummary
 import com.example.data.model.CargoCategory
 import com.example.data.model.CountryTradeProfile
@@ -120,6 +121,7 @@ class BigDealViewModel(
     val graceInterestRate = MutableStateFlow("0.0")
     val postGraceInterestRate = MutableStateFlow("12.0")
     val customMonthlyPayment = MutableStateFlow("")
+    val amortizationScheme = MutableStateFlow(AmortizationScheme.ANNUITY)
 
     private val _amortization = MutableStateFlow(
         AmortizationEngine.calculate(
@@ -535,9 +537,15 @@ class BigDealViewModel(
             graceTenureMonths = graceTenure,
             graceInterestRatePct = graceRate,
             postGraceInterestRatePct = postGraceRate,
+            scheme = amortizationScheme.value,
             customPeriodicPayment = customPayment
         )
         updateCurrencyConversion()
+    }
+
+    fun setAmortizationScheme(scheme: AmortizationScheme) {
+        amortizationScheme.value = scheme
+        updateFinancing()
     }
 
     fun setCustomMonthlyPayment(value: String) {

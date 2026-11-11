@@ -1,6 +1,7 @@
 package com.example.domain.calculator
 
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.round
 
 data class PaymentTermsResult(
@@ -40,8 +41,8 @@ object PaymentTermsEngine {
         val safeCashDisc = max(0.0, cashDiscountPct) / 100.0
 
         val costOfCredit = safeAmount * safeRate * (safeDays.toDouble() / 365.0)
-        val effectiveDiscountPct = if (safeAmount > 0) (costOfCredit / safeAmount) * 100.0 else (safeRate * (safeDays.toDouble() / 365.0) * 100.0)
-        val netPresentValue = max(0.0, safeAmount - costOfCredit)
+        val effectiveDiscountPct = safeRate * (safeDays.toDouble() / 365.0) * 100.0
+        val netPresentValue = if (safeDays > 0) safeAmount / (1.0 + safeRate * (safeDays.toDouble() / 365.0)) else safeAmount
 
         val cashDiscountAmount = safeAmount * safeCashDisc
         val cashDiscountNetProceeds = max(0.0, safeAmount - cashDiscountAmount)
@@ -92,6 +93,7 @@ object PaymentTermsEngine {
         val netDays = max(1, prolongedDays - cashDiscountTermsDays)
         val discFactor = if (cashDiscountPct < 100.0) cashDiscountPct / (100.0 - cashDiscountPct) else 1.0
         val tradeCreditApr = discFactor * (365.0 / netDays.toDouble()) * 100.0
+        val tradeCreditCompoundEar = ((1.0 + discFactor).pow(365.0 / netDays.toDouble()) - 1.0) * 100.0
 
         return PaymentTermsProlongation(
             dealAmount = r2(dealAmount),
@@ -103,7 +105,8 @@ object PaymentTermsEngine {
             prolongedCostOfCredit = prolonged.costOfCredit,
             additionalFinancingCost = r2(additionalFinancingCost),
             effectiveDiscountIncreasePts = r2(effectiveDiscountDelta),
-            tradeCreditApr = r2(tradeCreditApr)
+            tradeCreditApr = r2(tradeCreditApr),
+            tradeCreditCompoundEarPct = r2(tradeCreditCompoundEar)
         )
     }
 }
@@ -118,5 +121,6 @@ data class PaymentTermsProlongation(
     val prolongedCostOfCredit: Double,
     val additionalFinancingCost: Double,
     val effectiveDiscountIncreasePts: Double,
-    val tradeCreditApr: Double
+    val tradeCreditApr: Double,
+    val tradeCreditCompoundEarPct: Double = tradeCreditApr
 )

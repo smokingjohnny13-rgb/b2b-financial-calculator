@@ -1,6 +1,7 @@
 package com.example.domain.calculator
 
 import com.example.data.model.AmortizationRow
+import com.example.data.model.AmortizationScheme
 import com.example.data.model.AmortizationSummary
 import com.example.data.model.PaymentFrequency
 import kotlin.math.max
@@ -10,12 +11,50 @@ import kotlin.math.round
 object AmortizationEngine {
 
     /**
+     * Solves the true Actuarial Internal Rate of Return (IRR / ПСК / Effective APR)
+     * and compounded Effective Annual Rate (EAR) from exact cash flows using Bisection.
+     * Cash flow at t=0: +principal
+     * Cash flow at t=1..N: -payment_t
+     * Equation: principal - \sum_{t=1}^N payment_t / (1 + r)^t = 0
+     */
+    fun calculateIrr(principal: Double, payments: List<Double>, periodsPerYear: Int): Pair<Double, Double> {
+        if (principal <= 0.0 || payments.isEmpty()) return Pair(0.0, 0.0)
+        val totalPayments = payments.sum()
+        if (totalPayments <= principal) return Pair(0.0, 0.0)
+
+        var low = 0.0
+        var high = 5.0 // up to 500% periodic rate
+        var periodicRate = 0.0
+
+        for (iter in 0 until 40) {
+            val mid = (low + high) / 2.0
+            var npv = principal
+            var discountFactor = 1.0
+            val factorStep = 1.0 + mid
+
+            for (payment in payments) {
+                discountFactor *= factorStep
+                npv -= payment / discountFactor
+            }
+
+            if (npv > 0.0) {
+                high = mid
+            } else {
+                low = mid
+            }
+            periodicRate = mid
+        }
+
+        val nominalApr = roundTwoDecimals(periodicRate * periodsPerYear * 100.0)
+        val compoundEar = roundTwoDecimals(((1.0 + periodicRate).pow(periodsPerYear.toDouble()) - 1.0) * 100.0)
+        return Pair(nominalApr, compoundEar)
+    }
+
+    /**
      * Calculates the periodic payment and generates full amortization schedule,
+     * supporting both Annuity (равные платежи) and Differentiated (равные доли основного долга),
      * with optional Grace Period (льготный период), two-tier interest rate,
      * and optional Floating Rate (плавающая ставка: бенчмарк + спред с периодическим пересмотром).
-     *
-     * PMT formula: P * (r * (1 + r)^n) / ((1 + r)^n - 1)
-     * where r = periodic interest rate, n = total periods
      */
     fun calculate(
         principal: Double,
@@ -27,6 +66,7 @@ object AmortizationEngine {
         graceTenureMonths: Int = 0,
         graceInterestRatePct: Double = 0.0,
         postGraceInterestRatePct: Double = annualInterestRatePct,
+        scheme: AmortizationScheme = AmortizationScheme.ANNUITY,
         // Floating Rate Parameters
         isFloatingRate: Boolean = false,
         floatingBenchmarkRatePct: Double = 0.0,
@@ -60,11 +100,13 @@ object AmortizationEngine {
             val schedule = mutableListOf<AmortizationRow>()
             var accumulatedInterest = 0.0
             var sumRates = 0.0
-            var currentPayment = 0.0
             var firstPayment = 0.0
+            var lastPayment = 0.0
+            var period = 1
 
-            for (period in 1..totalPeriods) {
-                // Update floating rate at reset intervals
+            val hasPrepayment = customPeriodicPayment != null && customPeriodicPayment > 0.0
+
+            while (balance > 0.0001 && period <= totalPeriods) {
                 if (period > 1 && (period - 1) % resetIntervalPeriods == 0) {
                     currentAnnualRate = max(0.0, currentAnnualRate + trendPerReset)
                 }
@@ -72,31 +114,40 @@ object AmortizationEngine {
                 sumRates += currentAnnualRate
 
                 val remainingPeriods = totalPeriods - period + 1
-                if (periodicRate <= 0.000001) {
-                    currentPayment = balance / remainingPeriods
+                val standardPeriodicPayment = if (scheme == AmortizationScheme.DIFFERENTIATED) {
+                    val basePrincipalPart = balance / remainingPeriods
+                    val interestPart = if (periodicRate > 0.0) balance * periodicRate else 0.0
+                    basePrincipalPart + interestPart
                 } else {
-                    val factor = (1.0 + periodicRate).pow(remainingPeriods.toDouble())
-                    currentPayment = balance * (periodicRate * factor) / (factor - 1.0)
+                    if (periodicRate <= 0.000001) {
+                        balance / remainingPeriods
+                    } else {
+                        val factor = (1.0 + periodicRate).pow(remainingPeriods.toDouble())
+                        balance * (periodicRate * factor) / (factor - 1.0)
+                    }
                 }
 
-                if (period == 1) {
-                    firstPayment = currentPayment
-                }
+                if (period == 1) firstPayment = standardPeriodicPayment
 
                 val interestPart = if (periodicRate > 0.0) balance * periodicRate else 0.0
-                var principalPart = currentPayment - interestPart
+                val targetPayment = if (hasPrepayment) maxOf(standardPeriodicPayment, customPeriodicPayment!!) else standardPeriodicPayment
 
-                if (period == totalPeriods || principalPart > balance) {
+                var principalPart = targetPayment - interestPart
+                var actualPayment = targetPayment
+
+                if (period == totalPeriods || principalPart >= balance || (balance + interestPart) <= targetPayment) {
                     principalPart = balance
+                    actualPayment = principalPart + interestPart
                 }
 
                 balance = max(0.0, balance - principalPart)
                 accumulatedInterest += interestPart
+                lastPayment = actualPayment
 
                 schedule.add(
                     AmortizationRow(
                         period = period,
-                        payment = roundTwoDecimals(principalPart + interestPart),
+                        payment = roundTwoDecimals(actualPayment),
                         principal = roundTwoDecimals(principalPart),
                         interest = roundTwoDecimals(interestPart),
                         remainingBalance = roundTwoDecimals(balance),
@@ -104,10 +155,14 @@ object AmortizationEngine {
                         rateAppliedPct = roundTwoDecimals(currentAnnualRate)
                     )
                 )
+                period++
             }
 
             val totalPayments = netPrincipal + accumulatedInterest
-            val avgRate = if (totalPeriods > 0) sumRates / totalPeriods else currentAnnualRate
+            val actualPeriods = schedule.size
+            val periodsSaved = if (hasPrepayment) max(0, totalPeriods - actualPeriods) else 0
+            val (trueApr, trueEar) = calculateIrr(netPrincipal, schedule.map { it.payment }, frequency.periodsPerYear)
+            val avgRate = if (actualPeriods > 0) sumRates / actualPeriods else currentAnnualRate
 
             return AmortizationSummary(
                 periodicPayment = roundTwoDecimals(firstPayment),
@@ -126,7 +181,17 @@ object AmortizationEngine {
                 isFloatingRate = true,
                 floatingBenchmarkRatePct = floatingBenchmarkRatePct,
                 floatingSpreadPct = floatingSpreadPct,
-                effectiveAverageRatePct = roundTwoDecimals(avgRate)
+                effectiveAverageRatePct = roundTwoDecimals(avgRate),
+                customPayment = customPeriodicPayment,
+                isAccelerated = periodsSaved > 0,
+                acceleratedPeriods = actualPeriods,
+                periodsSaved = periodsSaved,
+                interestSaved = 0.0,
+                scheme = scheme,
+                firstPeriodicPayment = roundTwoDecimals(firstPayment),
+                lastPeriodicPayment = roundTwoDecimals(lastPayment),
+                trueEffectiveAprPct = trueApr,
+                effectiveAnnualRatePct = trueEar
             )
         }
 
@@ -146,36 +211,50 @@ object AmortizationEngine {
 
         // Single-tier fixed rate calculation
         if (!isGraceActive || calculatedGracePeriods <= 0) {
-            val standardPayment = if (standardPeriodicRate <= 0.000001) {
+            val standardPaymentAnnuity = if (standardPeriodicRate <= 0.000001) {
                 netPrincipal / totalPeriods
             } else {
                 val factor = (1.0 + standardPeriodicRate).pow(totalPeriods.toDouble())
                 netPrincipal * (standardPeriodicRate * factor) / (factor - 1.0)
             }
+            val basePrincipalChunk = netPrincipal / totalPeriods
 
-            // Calculate standard baseline interest (without prepayment)
+            // Calculate standard baseline interest (without prepayment) according to scheme
             var baselineInterest = 0.0
             var baseBal = netPrincipal
+            var baselineFirstPayment = 0.0
+            var baselineLastPayment = 0.0
             for (p in 1..totalPeriods) {
                 val intP = if (standardPeriodicRate > 0.0) baseBal * standardPeriodicRate else 0.0
-                var princP = standardPayment - intP
+                var princP = if (scheme == AmortizationScheme.DIFFERENTIATED) basePrincipalChunk else standardPaymentAnnuity - intP
                 if (p == totalPeriods || princP > baseBal) princP = baseBal
                 baseBal = max(0.0, baseBal - princP)
                 baselineInterest += intP
+                val pmt = princP + intP
+                if (p == 1) baselineFirstPayment = pmt
+                if (p == totalPeriods) baselineLastPayment = pmt
             }
 
-            val isAccelerated = customPeriodicPayment != null && customPeriodicPayment > standardPayment
+            val requiredMinPayment = if (scheme == AmortizationScheme.DIFFERENTIATED) baselineFirstPayment else standardPaymentAnnuity
+            val isAccelerated = customPeriodicPayment != null && customPeriodicPayment > requiredMinPayment
 
             var balance = netPrincipal
             val schedule = mutableListOf<AmortizationRow>()
             var accumulatedInterest = 0.0
             var period = 1
             val maxPeriods = totalPeriods
+            var firstPmt = 0.0
+            var lastPmt = 0.0
 
             while (balance > 0.0001 && period <= maxPeriods) {
                 val interestPart = if (standardPeriodicRate > 0.0) balance * standardPeriodicRate else 0.0
-                val targetPayment = if (isAccelerated) customPeriodicPayment!! else standardPayment
+                val standardScheduledPayment = if (scheme == AmortizationScheme.DIFFERENTIATED) {
+                    basePrincipalChunk + interestPart
+                } else {
+                    standardPaymentAnnuity
+                }
 
+                val targetPayment = if (isAccelerated) customPeriodicPayment!! else standardScheduledPayment
                 var principalPart = targetPayment - interestPart
                 var actualPayment = targetPayment
 
@@ -186,6 +265,8 @@ object AmortizationEngine {
 
                 balance = max(0.0, balance - principalPart)
                 accumulatedInterest += interestPart
+                if (period == 1) firstPmt = actualPayment
+                lastPmt = actualPayment
 
                 schedule.add(
                     AmortizationRow(
@@ -205,9 +286,10 @@ object AmortizationEngine {
             val actualPeriods = schedule.size
             val periodsSaved = if (isAccelerated) max(0, totalPeriods - actualPeriods) else 0
             val interestSaved = if (isAccelerated) roundTwoDecimals(max(0.0, baselineInterest - accumulatedInterest)) else 0.0
+            val (trueApr, trueEar) = calculateIrr(netPrincipal, schedule.map { it.payment }, frequency.periodsPerYear)
 
             return AmortizationSummary(
-                periodicPayment = roundTwoDecimals(if (isAccelerated) customPeriodicPayment!! else standardPayment),
+                periodicPayment = roundTwoDecimals(if (isAccelerated) customPeriodicPayment!! else (if (scheme == AmortizationScheme.DIFFERENTIATED) firstPmt else standardPaymentAnnuity)),
                 totalPayments = roundTwoDecimals(totalPayments),
                 totalInterest = roundTwoDecimals(accumulatedInterest),
                 schedule = schedule,
@@ -215,7 +297,7 @@ object AmortizationEngine {
                 hasGracePeriod = false,
                 gracePeriodsCount = 0,
                 gracePeriodicPayment = 0.0,
-                postGracePeriodicPayment = roundTwoDecimals(standardPayment),
+                postGracePeriodicPayment = roundTwoDecimals(if (scheme == AmortizationScheme.DIFFERENTIATED) firstPmt else standardPaymentAnnuity),
                 graceInterestRatePct = 0.0,
                 postGraceInterestRatePct = annualInterestRatePct,
                 totalGracePayments = 0.0,
@@ -226,21 +308,25 @@ object AmortizationEngine {
                 isAccelerated = isAccelerated,
                 acceleratedPeriods = actualPeriods,
                 periodsSaved = periodsSaved,
-                interestSaved = interestSaved
+                interestSaved = interestSaved,
+                scheme = scheme,
+                firstPeriodicPayment = roundTwoDecimals(firstPmt),
+                lastPeriodicPayment = roundTwoDecimals(lastPmt),
+                trueEffectiveAprPct = trueApr,
+                effectiveAnnualRatePct = trueEar
             )
         }
 
         // --- TWO-TIER / GRACE PERIOD CALCULATION ---
-        // During Grace: Client pays only interest (or 0 if rate is 0%). Principal does not amortize in standard mode.
         val standardGracePayment = if (gracePeriodicRate > 0.0) netPrincipal * gracePeriodicRate else 0.0
 
-        // Post Grace: Balance is netPrincipal amortized over postGracePeriods at postGracePeriodicRate
-        val standardPostGracePayment = if (postGracePeriodicRate <= 0.000001) {
+        val standardPostGracePaymentAnnuity = if (postGracePeriodicRate <= 0.000001) {
             netPrincipal / postGracePeriods
         } else {
             val factor = (1.0 + postGracePeriodicRate).pow(postGracePeriods.toDouble())
             netPrincipal * (postGracePeriodicRate * factor) / (factor - 1.0)
         }
+        val basePostGracePrincipalChunk = netPrincipal / postGracePeriods
 
         // Calculate baseline standard interest for comparison
         var baselineInterest = 0.0
@@ -249,7 +335,11 @@ object AmortizationEngine {
             val isG = p <= calculatedGracePeriods
             val r = if (isG) gracePeriodicRate else postGracePeriodicRate
             val intP = if (r > 0.0) baseBal * r else 0.0
-            var princP = if (isG) 0.0 else standardPostGracePayment - intP
+            var princP = if (isG) {
+                0.0
+            } else {
+                if (scheme == AmortizationScheme.DIFFERENTIATED) basePostGracePrincipalChunk else standardPostGracePaymentAnnuity - intP
+            }
             if (p == totalPeriods || princP > baseBal) princP = baseBal
             baseBal = max(0.0, baseBal - princP)
             baselineInterest += intP
@@ -263,6 +353,9 @@ object AmortizationEngine {
         var totalGracePaid = 0.0
         var totalPostGracePaid = 0.0
         var period = 1
+        var firstPmt = 0.0
+        var lastPmt = 0.0
+        var firstPostGracePmt = 0.0
 
         while (balance > 0.0001 && period <= totalPeriods) {
             val isGrace = period <= calculatedGracePeriods
@@ -285,7 +378,19 @@ object AmortizationEngine {
                 }
                 totalGracePaid += currentPayment
             } else {
-                val targetPayment = if (hasCustomPayment) maxOf(standardPostGracePayment, customPeriodicPayment!!) else standardPostGracePayment
+                val remainingPostGrace = totalPeriods - period + 1
+                val standardPostGraceScheduled = if (scheme == AmortizationScheme.DIFFERENTIATED) {
+                    (balance / remainingPostGrace) + interestPart
+                } else {
+                    if (activeRate <= 0.000001) balance / remainingPostGrace
+                    else {
+                        val factor = (1.0 + activeRate).pow(remainingPostGrace.toDouble())
+                        balance * (activeRate * factor) / (factor - 1.0)
+                    }
+                }
+                if (firstPostGracePmt == 0.0) firstPostGracePmt = standardPostGraceScheduled
+
+                val targetPayment = if (hasCustomPayment) maxOf(standardPostGraceScheduled, customPeriodicPayment!!) else standardPostGraceScheduled
                 if (period == totalPeriods || (balance + interestPart) <= targetPayment) {
                     principalPart = balance
                     currentPayment = principalPart + interestPart
@@ -298,6 +403,8 @@ object AmortizationEngine {
             }
 
             accumulatedInterest += interestPart
+            if (period == 1) firstPmt = currentPayment
+            lastPmt = currentPayment
 
             schedule.add(
                 AmortizationRow(
@@ -319,8 +426,10 @@ object AmortizationEngine {
         val interestSaved = if (hasCustomPayment) roundTwoDecimals(max(0.0, baselineInterest - accumulatedInterest)) else 0.0
         val isAccelerated = hasCustomPayment && (periodsSaved > 0 || interestSaved > 0.5)
 
+        val (trueApr, trueEar) = calculateIrr(netPrincipal, schedule.map { it.payment }, frequency.periodsPerYear)
+
         return AmortizationSummary(
-            periodicPayment = roundTwoDecimals(standardPostGracePayment),
+            periodicPayment = roundTwoDecimals(if (firstPostGracePmt > 0.0) firstPostGracePmt else standardPostGracePaymentAnnuity),
             totalPayments = roundTwoDecimals(totalPayments),
             totalInterest = roundTwoDecimals(accumulatedInterest),
             schedule = schedule,
@@ -328,18 +437,23 @@ object AmortizationEngine {
             hasGracePeriod = true,
             gracePeriodsCount = calculatedGracePeriods,
             gracePeriodicPayment = roundTwoDecimals(standardGracePayment),
-            postGracePeriodicPayment = roundTwoDecimals(standardPostGracePayment),
+            postGracePeriodicPayment = roundTwoDecimals(if (firstPostGracePmt > 0.0) firstPostGracePmt else standardPostGracePaymentAnnuity),
             graceInterestRatePct = graceInterestRatePct,
             postGraceInterestRatePct = postGraceInterestRatePct,
             totalGracePayments = roundTwoDecimals(totalGracePaid),
             totalPostGracePayments = roundTwoDecimals(totalPostGracePaid),
             isFloatingRate = false,
-            effectiveAverageRatePct = roundTwoDecimals((graceInterestRatePct * calculatedGracePeriods + postGraceInterestRatePct * postGracePeriods) / totalPeriods),
+            effectiveAverageRatePct = trueApr, // True Actuarial IRR replaces simplified weighted average!
             customPayment = customPeriodicPayment,
             isAccelerated = isAccelerated,
             acceleratedPeriods = actualPeriods,
             periodsSaved = periodsSaved,
-            interestSaved = interestSaved
+            interestSaved = interestSaved,
+            scheme = scheme,
+            firstPeriodicPayment = roundTwoDecimals(firstPmt),
+            lastPeriodicPayment = roundTwoDecimals(lastPmt),
+            trueEffectiveAprPct = trueApr,
+            effectiveAnnualRatePct = trueEar
         )
     }
 
@@ -359,21 +473,24 @@ object AmortizationEngine {
         prolongedTenureMonths: Int,
         annualInterestRatePct: Double,
         prolongedInterestRatePct: Double = annualInterestRatePct,
-        frequency: PaymentFrequency = PaymentFrequency.MONTHLY
+        frequency: PaymentFrequency = PaymentFrequency.MONTHLY,
+        scheme: AmortizationScheme = AmortizationScheme.ANNUITY
     ): CreditProlongationAnalysis {
         val orig = calculate(
             principal = principal,
             annualInterestRatePct = annualInterestRatePct,
             tenureMonths = originalTenureMonths,
             downPayment = downPayment,
-            frequency = frequency
+            frequency = frequency,
+            scheme = scheme
         )
         val prolonged = calculate(
             principal = principal,
             annualInterestRatePct = prolongedInterestRatePct,
             tenureMonths = prolongedTenureMonths,
             downPayment = downPayment,
-            frequency = frequency
+            frequency = frequency,
+            scheme = scheme
         )
 
         val paymentRelief = max(0.0, orig.periodicPayment - prolonged.periodicPayment)

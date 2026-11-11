@@ -10,6 +10,11 @@ enum class PaymentFrequency(val displayName: String, val periodsPerYear: Int) {
     ANNUALLY("Yearly", 1)
 }
 
+enum class AmortizationScheme(val displayName: String, val displayNameRu: String) {
+    ANNUITY("Annuity", "Аннуитетный"),
+    DIFFERENTIATED("Differentiated", "Дифференцированный")
+}
+
 data class CurrencyRate(
     val code: String,
     val name: String,
@@ -50,7 +55,13 @@ data class AmortizationSummary(
     val isAccelerated: Boolean = false,
     val acceleratedPeriods: Int = 0,
     val periodsSaved: Int = 0,
-    val interestSaved: Double = 0.0
+    val interestSaved: Double = 0.0,
+    // Professional Banking Fields (Аннуитет vs Дифференцированный, ПСК / IRR)
+    val scheme: AmortizationScheme = AmortizationScheme.ANNUITY,
+    val firstPeriodicPayment: Double = periodicPayment,
+    val lastPeriodicPayment: Double = periodicPayment,
+    val trueEffectiveAprPct: Double = effectiveAverageRatePct,
+    val effectiveAnnualRatePct: Double = effectiveAverageRatePct
 )
 
 data class LtvMetrics(

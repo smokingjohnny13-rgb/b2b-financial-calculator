@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AmortizationScheme
 import com.example.data.model.PaymentFrequency
 import com.example.ui.components.CashGapTimelineCard
 import com.example.ui.components.FinancialInputField
@@ -109,6 +110,7 @@ fun FinancingFxScreen(
     val graceInterestRate by viewModel.graceInterestRate.collectAsState()
     val postGraceInterestRate by viewModel.postGraceInterestRate.collectAsState()
     val customPaymentInput by viewModel.customMonthlyPayment.collectAsState()
+    val selectedScheme by viewModel.amortizationScheme.collectAsState()
 
     val baseCurrency by viewModel.selectedCurrency.collectAsState()
     val targetCurrency by viewModel.targetCurrency.collectAsState()
@@ -238,7 +240,10 @@ fun FinancingFxScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "${freqLocalizedName.uppercase()} ${tr("TWO-TIER INSTALLMENT", "ДВУХСТАВОЧНЫЙ ПЛАТЕЖ")}",
+                                        text = if (selectedScheme == AmortizationScheme.DIFFERENTIATED)
+                                            "${freqLocalizedName.uppercase()} ${tr("DIFF. INSTALLMENT", "ДИФФЕРЕНЦ. ПЛАТЕЖ")}"
+                                        else
+                                            "${freqLocalizedName.uppercase()} ${tr("TWO-TIER INSTALLMENT", "ДВУХСТАВОЧНЫЙ ПЛАТЕЖ")}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         letterSpacing = 0.5.sp,
@@ -278,6 +283,22 @@ fun FinancingFxScreen(
                                                 text = "${tr("Post", "После")}: ${amortization.postGraceInterestRatePct}%",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = GoldAccent,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 10.sp,
+                                                softWrap = false,
+                                                maxLines = 1
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "${tr("IRR", "ПСК")}: ${amortization.trueEffectiveAprPct}%",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 10.sp,
                                                 softWrap = false,
@@ -340,12 +361,23 @@ fun FinancingFxScreen(
                                                 color = GoldAccent,
                                                 fontWeight = FontWeight.Bold
                                             )
-                                            Text(
-                                                text = viewModel.formatCurrency(amortization.postGracePeriodicPayment),
-                                                style = MaterialTheme.typography.titleLarge,
-                                                fontWeight = FontWeight.Black,
-                                                color = EmeraldPrimary
-                                            )
+                                            if (selectedScheme == AmortizationScheme.DIFFERENTIATED && amortization.firstPeriodicPayment != amortization.lastPeriodicPayment) {
+                                                Text(
+                                                    text = "${viewModel.formatCurrency(amortization.postGracePeriodicPayment)} → ${viewModel.formatCurrency(amortization.lastPeriodicPayment)}",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = EmeraldPrimary,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = viewModel.formatCurrency(amortization.postGracePeriodicPayment),
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = EmeraldPrimary
+                                                )
+                                            }
                                             Text(
                                                 text = "${tr("Installments", "Выплаты")} ${amortization.gracePeriodsCount + 1}–${amortization.schedule.size}",
                                                 style = MaterialTheme.typography.labelSmall,
@@ -362,7 +394,10 @@ fun FinancingFxScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "${freqLocalizedName.uppercase()} ${tr("INSTALLMENT", "ПЛАТЕЖ")}",
+                                        text = if (selectedScheme == AmortizationScheme.DIFFERENTIATED)
+                                            "${freqLocalizedName.uppercase()} ${tr("DIFF. INSTALLMENT", "ДИФФЕРЕНЦ. ПЛАТЕЖ")}"
+                                        else
+                                            "${freqLocalizedName.uppercase()} ${tr("INSTALLMENT", "ПЛАТЕЖ")}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         letterSpacing = 0.5.sp,
@@ -372,29 +407,66 @@ fun FinancingFxScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(EmeraldPrimary.copy(alpha = 0.15f))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = "${interestRate}% APR",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = EmeraldPrimary,
-                                            fontWeight = FontWeight.Bold,
-                                            softWrap = false,
-                                            maxLines = 1
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(EmeraldPrimary.copy(alpha = 0.15f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = "${interestRate}% APR",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = EmeraldPrimary,
+                                                fontWeight = FontWeight.Bold,
+                                                softWrap = false,
+                                                maxLines = 1
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = "${tr("IRR", "ПСК")}: ${amortization.trueEffectiveAprPct}%",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                softWrap = false,
+                                                maxLines = 1
+                                            )
+                                        }
                                     }
                                 }
 
-                                Text(
-                                    text = viewModel.formatCurrency(amortization.periodicPayment),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Black
-                                )
+                                if (selectedScheme == AmortizationScheme.DIFFERENTIATED && amortization.firstPeriodicPayment != amortization.lastPeriodicPayment) {
+                                    Column {
+                                        Text(
+                                            text = "${viewModel.formatCurrency(amortization.firstPeriodicPayment)} → ${viewModel.formatCurrency(amortization.lastPeriodicPayment)}",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                        Text(
+                                            text = tr("Decreasing differentiated installment", "Дифференцированный убывающий платёж"),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ElectricCyan,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = viewModel.formatCurrency(amortization.periodicPayment),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
                             }
 
                             HorizontalDivider(
@@ -518,44 +590,103 @@ fun FinancingFxScreen(
                     }
                 }
 
-                // 2. Frequency Selector (Weekly, Bi-Weekly, Monthly, Quarterly, Yearly)
+                // 2. Repayment Scheme & Frequency Selectors
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = tr("PAYMENT FREQUENCY", "ПЕРИОДИЧНОСТЬ ПЛАТЕЖЕЙ"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        ScrollableTabRow(
-                            selectedTabIndex = PaymentFrequency.values().indexOf(frequency),
-                            containerColor = ExecutiveSurfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.primary,
-                            edgePadding = 0.dp,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(1.dp, ExecutiveBorder, RoundedCornerShape(12.dp))
-                        ) {
-                            PaymentFrequency.values().forEach { freq ->
-                                val selected = freq == frequency
-                                val freqText = when (freq) {
-                                    PaymentFrequency.WEEKLY -> tr("Weekly", "Еженедельно")
-                                    PaymentFrequency.BIWEEKLY -> tr("Bi-Weekly", "Раз в 2 нед.")
-                                    PaymentFrequency.MONTHLY -> tr("Monthly", "Ежемесячно")
-                                    PaymentFrequency.QUARTERLY -> tr("Quarterly", "Ежеквартально")
-                                    PaymentFrequency.ANNUALLY -> tr("Yearly", "Ежегодно")
-                                }
-                                Tab(
-                                    selected = selected,
-                                    onClick = { viewModel.setPaymentFrequency(freq) },
-                                    text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        // Repayment Scheme Selector (Annuity vs Differentiated)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = tr("REPAYMENT SCHEME", "СХЕМА ВЫПЛАТ ПО КРЕДИТУ"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (selectedScheme == AmortizationScheme.ANNUITY)
+                                        tr("Equal installments", "Аннуитет: равные платежи")
+                                    else
+                                        tr("Equal principal (less interest)", "Дифференц: равный долг (меньше переплата)"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = ElectricCyan,
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(ExecutiveSurfaceVariant)
+                                    .border(1.dp, ExecutiveBorder, RoundedCornerShape(12.dp))
+                                    .padding(3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                AmortizationScheme.values().forEach { schemeItem ->
+                                    val isSelected = schemeItem == selectedScheme
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(9.dp))
+                                            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                            .clickable { viewModel.setAmortizationScheme(schemeItem) }
+                                            .padding(vertical = 8.dp)
+                                            .testTag("scheme_${schemeItem.name.lowercase()}"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         Text(
-                                            text = freqText,
-                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            text = tr(schemeItem.displayName, schemeItem.displayNameRu),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                                             fontSize = 12.sp
                                         )
                                     }
-                                )
+                                }
+                            }
+                        }
+
+                        // Payment Frequency
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = tr("PAYMENT FREQUENCY", "ПЕРИОДИЧНОСТЬ ПЛАТЕЖЕЙ"),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            ScrollableTabRow(
+                                selectedTabIndex = PaymentFrequency.values().indexOf(frequency),
+                                containerColor = ExecutiveSurfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.primary,
+                                edgePadding = 0.dp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, ExecutiveBorder, RoundedCornerShape(12.dp))
+                            ) {
+                                PaymentFrequency.values().forEach { freq ->
+                                    val selected = freq == frequency
+                                    val freqText = when (freq) {
+                                        PaymentFrequency.WEEKLY -> tr("Weekly", "Еженедельно")
+                                        PaymentFrequency.BIWEEKLY -> tr("Bi-Weekly", "Раз в 2 нед.")
+                                        PaymentFrequency.MONTHLY -> tr("Monthly", "Ежемесячно")
+                                        PaymentFrequency.QUARTERLY -> tr("Quarterly", "Ежеквартально")
+                                        PaymentFrequency.ANNUALLY -> tr("Yearly", "Ежегодно")
+                                    }
+                                    Tab(
+                                        selected = selected,
+                                        onClick = { viewModel.setPaymentFrequency(freq) },
+                                        text = {
+                                            Text(
+                                                text = freqText,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
