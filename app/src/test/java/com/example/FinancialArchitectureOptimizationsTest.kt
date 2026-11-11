@@ -104,4 +104,56 @@ class FinancialArchitectureOptimizationsTest {
         assertEquals(10, " 10 ".toCleanInt() ?: 0)
         assertEquals(12, "".toCleanInt(12))
     }
+
+    @Test
+    fun `test cross module deal cash gap and hurdle consistency`() {
+        // Given a deal of 1,000 units with Net-Net price = 100 and COGS = 65 (Margin = 35%)
+        val volume = 1000
+        val sellingPrice = 100.0
+        val costPrice = 65.0
+        val paymentDays = 45
+
+        val dealRevenue = sellingPrice * volume // 100,000
+        val dealCogs = costPrice * volume       // 65,000
+
+        // 1. Deal Scoring
+        val dealScoring = com.example.domain.calculator.DealScoringEngine.calculate(
+            sellingPrice = sellingPrice,
+            costPrice = costPrice,
+            volumeUnits = volume,
+            onInvoiceDiscountPct = 0.0,
+            offInvoiceBonusPct = 0.0,
+            paymentTermsDays = paymentDays,
+            financingAnnualRatePct = 18.0
+        )
+        assertEquals(dealRevenue, dealScoring.totalRevenue, 0.01)
+        assertEquals(dealCogs, dealScoring.costPrice * dealScoring.volumeUnits, 0.01)
+        assertEquals(35000.0, dealScoring.totalNetNetProfit, 0.01)
+
+        // 2. Cash Gap calculation with the exact transferred deal parameters
+        val cashGap = com.example.domain.calculator.CashGapEngine.calculate(
+            dealRevenue = dealRevenue,
+            cogsTotal = dealCogs,
+            prepaidPct = 10.0,
+            supplierPayDays = 30,
+            customerPayDays = paymentDays,
+            inventoryDays = 15,
+            overdraftRatePct = 18.0
+        )
+        // CCC = DIO (15) + DSO (45) - DPO (30) = 30 days
+        assertEquals(30, cashGap.cashConversionCycleDays)
+        assertTrue("Cash gap peak cash deficit must be positive", cashGap.peakCashDeficit > 0.0)
+
+        // 3. Hurdle ROIC calculation with the exact transferred tied-up capital
+        val roic = com.example.domain.calculator.HurdleRoicEngine.calculate(
+            dealRevenue = dealRevenue,
+            dealNetProfit = dealScoring.totalNetNetProfit,
+            tiedUpCapital = dealCogs,
+            cycleDays = paymentDays,
+            corporateHurdleRatePct = 20.0
+        )
+        // Annualized ROIC: (35,000 / 65,000) * (365 / 45) * 100% = 53.85% * 8.11 = ~436.7%
+        assertTrue("ROIC must exceed corporate hurdle of 20%", roic.annualizedRoicPct > 20.0)
+        assertTrue("Deal must be value accretive", roic.isValueAccretive)
+    }
 }

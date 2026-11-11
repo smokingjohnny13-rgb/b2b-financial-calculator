@@ -1139,8 +1139,13 @@ class BigDealViewModel(
         val costStr = if (cogs % 1.0 == 0.0) cogs.toInt().toString() else String.format(Locale.US, "%.2f", cogs)
         val netStr = if (net % 1.0 == 0.0) net.toInt().toString() else String.format(Locale.US, "%.2f", net)
         onMarginCostOrPriceChanged(newCost = costStr, newPrice = netStr)
+        dealApprovalCostPrice.value = costStr
+        dealApprovalSellingPrice.value = if (waterfallRsp.value.isNotBlank()) waterfallRsp.value else netStr
+        dealApprovalDiscountPct.value = waterfallFrontDiscount.value
+        dealApprovalBonusPct.value = waterfallBackBonus.value
+        recalculateDealScoring()
         viewModelScope.launch {
-            _userMessage.emit(str("Net-Net price (${formatCurrency(net)}) transferred to margin solver", "Чистая цена (${formatCurrency(net)}) передана в расчет маржи", appLanguage.value))
+            _userMessage.emit(str("Net-Net price (${formatCurrency(net)}) transferred to margin solver and deal desk", "Чистая цена (${formatCurrency(net)}) передана в расчет маржи и сделку", appLanguage.value))
         }
     }
 
@@ -1149,6 +1154,9 @@ class BigDealViewModel(
         val cogs = _waterfallResult.value.supplierCogs
         unitPrice.value = net.toInt().toString()
         unitCost.value = cogs.toInt().toString()
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        pnlRevenue.value = (net * vol).toInt().toString()
+        pnlCogs.value = (cogs * vol).toInt().toString()
         updatePnlCalculations()
         viewModelScope.launch {
             _userMessage.emit(str("Net-Net price and cost transferred to P&L / Break-Even", "Net-Net цена и себестоимость переданы в P&L / Точку безубыточности", appLanguage.value))
@@ -1199,20 +1207,38 @@ class BigDealViewModel(
     }
 
     fun importTermsFromDeal() {
-        val p = principalAmount.value.toCleanDouble() ?: 120000.0
-        termsDealAmount.value = p.toInt().toString()
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val dealTotal = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 120000.0)
+        termsDealAmount.value = dealTotal.toInt().toString()
+        termsDays.value = dealApprovalPaymentDays.value
+        termsAnnualRate.value = dealApprovalFinancingRate.value
         updatePaymentTermsCalculations()
         viewModelScope.launch {
-            _userMessage.emit(str("Deal amount imported: ${formatCurrency(p)}", "Сумма сделки импортирована: ${formatCurrency(p)}", appLanguage.value))
+            _userMessage.emit(
+                str(
+                    "Deal terms imported (Amount: ${formatCurrency(dealTotal)}, Days: ${termsDays.value}, Rate: ${termsAnnualRate.value}%)",
+                    "Условия сделки импортированы (Сумма: ${formatCurrency(dealTotal)}, Отсрочка: ${termsDays.value} дн., Ставка: ${termsAnnualRate.value}%)",
+                    appLanguage.value
+                )
+            )
         }
     }
 
     fun applyEffectiveNetToDeal() {
         val npv = _paymentTermsResult.value.netPresentValue
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        if (vol > 0) {
+            val netPricePerUnit = npv / vol
+            dealApprovalSellingPrice.value = if (netPricePerUnit % 1.0 == 0.0) netPricePerUnit.toInt().toString() else String.format(Locale.US, "%.2f", netPricePerUnit)
+            recalculateDealScoring()
+        }
         principalAmount.value = npv.toInt().toString()
         updateFinancing()
+        pnlRevenue.value = npv.toInt().toString()
+        updatePnlCalculations()
         viewModelScope.launch {
-            _userMessage.emit(str("Deal amount adjusted for terms cost (NPV): ${formatCurrency(npv)}", "Сумма сделки скорректирована на стоимость отсрочки: ${formatCurrency(npv)}", appLanguage.value))
+            _userMessage.emit(str("Deal amount adjusted for terms cost (NPV): ${formatCurrency(npv)}", "Сумма сделки скорректирована на стоимость отсрочки (NPV): ${formatCurrency(npv)}", appLanguage.value))
         }
     }
 
@@ -1299,7 +1325,9 @@ class BigDealViewModel(
     }
 
     fun importDealToMultiCredit() {
-        val p = principalAmount.value.toCleanDouble() ?: 120000.0
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val p = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 120000.0)
         val t = tenureMonths.value.toCleanInt() ?: 12
         creditPrincipal.value = p.toInt().toString()
         creditTenureMonths.value = t.toString()
@@ -1311,8 +1339,11 @@ class BigDealViewModel(
 
     fun applyCreditHedgedRateToFinancing() {
         val hedgedRate = _multiCreditResult.value.weightedEffectiveRateWithHedgePct
-        annualInterestRate.value = String.format(java.util.Locale.US, "%.1f", hedgedRate)
+        val rateFormatted = String.format(java.util.Locale.US, "%.1f", hedgedRate)
+        annualInterestRate.value = rateFormatted
         updateFinancing()
+        dealApprovalFinancingRate.value = rateFormatted
+        recalculateDealScoring()
         viewModelScope.launch {
             _userMessage.emit(str("Deal financing rate updated: ${annualInterestRate.value}% (basket & hedge adjusted)", "Ставка финансирования сделки обновлена: ${annualInterestRate.value}% (с учетом корзины и хеджа)", appLanguage.value))
         }
@@ -1346,13 +1377,26 @@ class BigDealViewModel(
     }
 
     fun importDealToCashGap() {
-        val p = principalAmount.value.toCleanDouble() ?: 100000.0
-        cashGapRevenue.value = p.toInt().toString()
-        val cogs = p * 0.70
-        cashGapCogs.value = cogs.toInt().toString()
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
+        val rev = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 100000.0)
+        val realCogs = if (cp > 0 && vol > 0) cp * vol else (rev * (1.0 - (_marginState.value.marginPct / 100.0)))
+
+        cashGapRevenue.value = rev.toInt().toString()
+        cashGapCogs.value = realCogs.toInt().toString()
+        cashGapCustomerDays.value = dealApprovalPaymentDays.value
+        cashGapOverdraftRate.value = dealApprovalFinancingRate.value
         updateCashGapCalculations()
+
         viewModelScope.launch {
-            _userMessage.emit(str("Deal imported to Cash Gap & CCC Modeler: ${formatCurrency(p)}", "Данные сделки импортированы в модель кассового разрыва: ${formatCurrency(p)}", appLanguage.value))
+            _userMessage.emit(
+                str(
+                    "Deal imported to Cash Gap (Revenue: ${formatCurrency(rev)}, COGS: ${formatCurrency(realCogs)}, DSO: ${cashGapCustomerDays.value}d)",
+                    "Сделка импортирована в кассовый разрыв (Выручка: ${formatCurrency(rev)}, Себестоимость: ${formatCurrency(realCogs)}, Отсрочка: ${cashGapCustomerDays.value} дн.)",
+                    appLanguage.value
+                )
+            )
         }
     }
 
@@ -1410,16 +1454,28 @@ class BigDealViewModel(
     }
 
     fun importDealToHurdleRoic() {
-        val p = principalAmount.value.toCleanDouble() ?: 100000.0
-        hurdleDealRevenue.value = p.toInt().toString()
-        val marginPct = _marginState.value.marginPct.takeIf { it > 0 } ?: 8.0
-        val profit = p * (marginPct / 100.0)
-        hurdleNetProfit.value = profit.toInt().toString()
-        val capital = p * 0.65
-        hurdleTiedUpCapital.value = capital.toInt().toString()
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
+        val rev = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 100000.0)
+        val tiedUp = if (cp > 0 && vol > 0) cp * vol else (rev * 0.65)
+        val scoringProfit = _dealScoringResult.value.totalNetNetProfit
+        val netProfit = if (scoringProfit > 0.0) scoringProfit else (rev * (_marginState.value.marginPct / 100.0))
+
+        hurdleDealRevenue.value = rev.toInt().toString()
+        hurdleNetProfit.value = netProfit.toInt().toString()
+        hurdleTiedUpCapital.value = tiedUp.toInt().toString()
+        hurdleCycleDays.value = dealApprovalPaymentDays.value
         updateHurdleRoicCalculations()
+
         viewModelScope.launch {
-            _userMessage.emit(str("Deal synced to ROIC Hurdle Guardrail", "Сделка синхронизирована с ROIC барьерной ставкой", appLanguage.value))
+            _userMessage.emit(
+                str(
+                    "Deal synced to ROIC Hurdle Guardrail (Capital: ${formatCurrency(tiedUp)}, Profit: ${formatCurrency(netProfit)}, Cycle: ${hurdleCycleDays.value}d)",
+                    "Сделка синхронизирована с ROIC (Капитал: ${formatCurrency(tiedUp)}, Прибыль: ${formatCurrency(netProfit)}, Цикл: ${hurdleCycleDays.value} дн.)",
+                    appLanguage.value
+                )
+            )
         }
     }
 
@@ -1446,8 +1502,20 @@ class BigDealViewModel(
         marginCostInput.value = scenario.cogs.toInt().toString()
         marginPriceInput.value = scenario.netNetPrice.toInt().toString()
         onMarginCostOrPriceChanged(newCost = scenario.cogs.toInt().toString(), newPrice = scenario.netNetPrice.toInt().toString())
+
+        dealApprovalCostPrice.value = scenario.cogs.toInt().toString()
+        dealApprovalSellingPrice.value = scenario.shelfPrice.toInt().toString()
+        dealApprovalDiscountPct.value = scenario.frontDiscountPct.toString()
+        dealApprovalBonusPct.value = scenario.backBonusPct.toString()
+        dealApprovalPaymentDays.value = scenario.paymentDays.toString()
+        recalculateDealScoring()
+
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        principalAmount.value = (scenario.netNetPrice * vol).toInt().toString()
+        updateFinancing()
+
         viewModelScope.launch {
-            _userMessage.emit(str("Applied '${scenario.nameEn}' scenario to deal pricing", "Применен сценарий '${scenario.nameRu}' к сделке", appLanguage.value))
+            _userMessage.emit(str("Applied '${scenario.nameEn}' scenario to deal pricing & desk", "Применен сценарий '${scenario.nameRu}' к сделке и согласованию", appLanguage.value))
         }
     }
 
@@ -1581,11 +1649,16 @@ class BigDealViewModel(
         termsDealAmount.value = deal.toInt().toString()
         termsAnnualRate.value = rate.toString()
         updatePaymentTermsCalculations()
+
+        dealApprovalPaymentDays.value = days.toString()
+        dealApprovalFinancingRate.value = rate.toString()
+        recalculateDealScoring()
+
         viewModelScope.launch {
             _userMessage.emit(
                 str(
-                    "Trade-off terms transferred to Payment Terms tab (Days: $days, Rate: $rate%)",
-                    "Условия отсрочки перенесены во вкладку Условия платежа (Дней: $days, Ставка: $rate%)",
+                    "Trade-off terms transferred to Payment Terms and Deal (Days: $days, Rate: $rate%)",
+                    "Условия отсрочки перенесены в условия платежа и сделку (Дней: $days, Ставка: $rate%)",
                     appLanguage.value
                 )
             )
@@ -1596,11 +1669,20 @@ class BigDealViewModel(
         val blended = _blendedBasketResult.value
         val blendedMargin = blended.blendedMarginPct
         applyMarginPercentPreset(blendedMargin)
+
+        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
+        if (blendedMargin in 0.01..99.99) {
+            val newPrice = cp / (1.0 - blendedMargin / 100.0)
+            val priceStr = if (newPrice % 1.0 == 0.0) newPrice.toInt().toString() else String.format(Locale.US, "%.2f", newPrice)
+            dealApprovalSellingPrice.value = priceStr
+            recalculateDealScoring()
+        }
+
         viewModelScope.launch {
             _userMessage.emit(
                 str(
-                    "Blended basket margin (${String.format(Locale.US, "%.1f", blendedMargin)}%) applied to Margin Solver",
-                    "Средневзвешенная маржа корзины (${String.format(Locale.US, "%.1f", blendedMargin)}%) применена к расчету маржи",
+                    "Blended basket margin (${String.format(Locale.US, "%.1f", blendedMargin)}%) applied to Margin Solver and Deal",
+                    "Средневзвешенная маржа корзины (${String.format(Locale.US, "%.1f", blendedMargin)}%) применена к расчету маржи и сделке",
                     appLanguage.value
                 )
             )
