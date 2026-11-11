@@ -705,10 +705,42 @@ class BigDealViewModel(
 
     fun transferLandedCostToDeal() {
         val landed = _landedCostResult.value.landedCost
-        principalAmount.value = landed.toInt().toString()
+        val costStr = if (landed % 1.0 == 0.0) landed.toInt().toString() else String.format(Locale.US, "%.2f", landed)
+        dealApprovalCostPrice.value = costStr
+
+        val currentPrice = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        if (currentPrice <= landed) {
+            val suggestedPrice = landed / (1.0 - 0.35)
+            val priceStr = if (suggestedPrice % 1.0 == 0.0) suggestedPrice.toInt().toString() else String.format(Locale.US, "%.2f", suggestedPrice)
+            dealApprovalSellingPrice.value = priceStr
+        }
+
+        recalculateDealScoring()
+
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: (landed * 1.54)
+        val totalDealValue = sp * vol
+        principalAmount.value = totalDealValue.toInt().toString()
         updateFinancing()
+
+        unitCost.value = costStr
+        unitPrice.value = dealApprovalSellingPrice.value
+        pnlCogs.value = (landed * vol).toInt().toString()
+        pnlRevenue.value = totalDealValue.toInt().toString()
+        updatePnlCalculations()
+
+        marginCostInput.value = costStr
+        marginPriceInput.value = dealApprovalSellingPrice.value
+        onMarginCostOrPriceChanged()
+
         viewModelScope.launch {
-            _userMessage.emit(str("Deal principal updated with Landed Cost: ${formatCurrency(landed)}", "Сумма сделки обновлена себестоимостью: ${formatCurrency(landed)}", appLanguage.value))
+            _userMessage.emit(
+                str(
+                    "Deal COGS updated with Landed Cost: ${formatCurrency(landed)}",
+                    "Себестоимость сделки (COGS) обновлена из Landed Cost: ${formatCurrency(landed)}",
+                    appLanguage.value
+                )
+            )
         }
     }
 
@@ -873,6 +905,13 @@ class BigDealViewModel(
         )
         pnlRevenue.value = deal.dealValue.toInt().toString()
         updatePnlCalculations()
+
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val unitPrice = if (vol > 0 && deal.dealValue > 0) deal.dealValue / vol else deal.dealValue
+        val unitCost = unitPrice * (1.0 - deal.marginPct / 100.0)
+        dealApprovalSellingPrice.value = if (unitPrice % 1.0 == 0.0) unitPrice.toInt().toString() else String.format(Locale.US, "%.2f", unitPrice)
+        dealApprovalCostPrice.value = if (unitCost % 1.0 == 0.0) unitCost.toInt().toString() else String.format(Locale.US, "%.2f", unitCost)
+        recalculateDealScoring()
 
         viewModelScope.launch {
             _userMessage.emit(str("Loaded scenario: ${deal.title}", "Загружен сценарий: ${deal.title}", appLanguage.value))

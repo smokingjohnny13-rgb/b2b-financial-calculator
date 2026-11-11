@@ -660,7 +660,8 @@ fun BigDealAppRoot(
                         0 -> FinancingFxScreen(viewModel = viewModel)
                         1 -> LandedCostScreen(
                             viewModel = viewModel,
-                            onNavigateToMargin = { selectedTab = 2 }
+                            onNavigateToMargin = { selectedTab = 2 },
+                            onNavigateToDeal = { selectedTab = 5 }
                         )
                         2 -> MarginMarkupScreen(viewModel = viewModel)
                         3 -> PipelineLtvScreen(viewModel = viewModel)

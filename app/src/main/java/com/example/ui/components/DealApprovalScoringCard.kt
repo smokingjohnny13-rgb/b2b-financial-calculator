@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dangerous
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
@@ -300,6 +301,41 @@ fun DealApprovalScoringCard(
                         label = tr("Volume (Units)", "Объем (шт)"),
                         modifier = Modifier.weight(1f)
                     )
+                }
+
+                val currentLanded = viewModel.landedCostResult.collectAsState().value.landedCost
+                if (currentLanded > 0.0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${tr("Landed Cost (FOB):", "Себестоимость Landed Cost:")} ${viewModel.formatCurrency(currentLanded)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.transferLandedCostToDeal() },
+                            modifier = Modifier
+                                .height(28.dp)
+                                .testTag("btn_apply_landed_to_deal"),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(12.dp), tint = EmeraldPrimary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = tr("Sync to Deal", "Синхронизировать в сделку"),
+                                fontSize = 11.sp,
+                                color = EmeraldPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
 
                 Row(

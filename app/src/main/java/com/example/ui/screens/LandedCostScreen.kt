@@ -89,7 +89,8 @@ import java.util.Locale
 fun LandedCostScreen(
     viewModel: BigDealViewModel,
     modifier: Modifier = Modifier,
-    onNavigateToMargin: (() -> Unit)? = null
+    onNavigateToMargin: (() -> Unit)? = null,
+    onNavigateToDeal: (() -> Unit)? = null
 ) {
     val currentLang = LocalAppLanguage.current
     val activeCurrency by viewModel.activeCurrency.collectAsState()
@@ -404,7 +405,10 @@ fun LandedCostScreen(
                         }
 
                         OutlinedButton(
-                            onClick = { viewModel.transferLandedCostToDeal() },
+                            onClick = {
+                                viewModel.transferLandedCostToDeal()
+                                onNavigateToDeal?.invoke()
+                            },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.testTag("btn_transfer_to_deal")
                         ) {

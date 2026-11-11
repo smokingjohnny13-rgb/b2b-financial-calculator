@@ -76,4 +76,34 @@ class LandedCostCalculatorTest {
         assertEquals(1.65, CargoCategory.BULKY.minCoeff, 0.001)
         assertEquals(1.75, CargoCategory.BULKY.maxCoeff, 0.001)
     }
+
+    @Test
+    fun testLandedCostIntegrationWithDealScoringEngine() {
+        // Direct calculation: FOB $50.0 with 1.48 coeff = Landed Cost $74.0
+        val landedResult = LandedCostCalculator.calculateDirect(
+            fobPrice = 50.0,
+            coefficient = 1.48
+        )
+        assertEquals(74.0, landedResult.landedCost, 0.01)
+
+        // Transfer landed cost into Deal Scoring as cost price (COGS)
+        val sellingPrice = 114.0
+        val dealScoring = com.example.domain.calculator.DealScoringEngine.calculate(
+            sellingPrice = sellingPrice,
+            costPrice = landedResult.landedCost,
+            volumeUnits = 1000,
+            onInvoiceDiscountPct = 5.0,
+            offInvoiceBonusPct = 5.0,
+            paymentTermsDays = 30,
+            financingAnnualRatePct = 18.0
+        )
+
+        // Gross margin: (114 - 74) / 114 = 35.09%
+        assertEquals(35.09, dealScoring.grossMarginPct, 0.05)
+        // Total cost of goods sold = 74.0 * 1000 = 74,000
+        assertEquals(74000.0, dealScoring.costPrice * dealScoring.volumeUnits, 0.01)
+        // Deal must be profitable after accounting for landed cost
+        assertTrue(dealScoring.totalNetNetProfit > 0.0)
+        assertTrue(dealScoring.profitAfterCostOfCapital > 0.0)
+    }
 }
