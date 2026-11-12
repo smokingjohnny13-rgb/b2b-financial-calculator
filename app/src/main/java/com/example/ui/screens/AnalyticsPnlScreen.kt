@@ -19,9 +19,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Timelapse
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.FinancialInputField
 import com.example.ui.components.MetricCard
+import com.example.ui.components.PlanFactVarianceCard
 import com.example.ui.components.RoiPnlModeler
 import com.example.ui.components.TornadoSensitivityCard
 import com.example.ui.i18n.tr
@@ -71,6 +77,7 @@ fun AnalyticsPnlScreen(
     val unitCost by viewModel.unitCost.collectAsState()
     val pnl by viewModel.pnlModel.collectAsState()
     val tornadoResult by viewModel.tornadoResult.collectAsState()
+    var activeSubTab by remember { mutableIntStateOf(0) }
 
     LazyColumn(
         modifier = modifier
@@ -98,6 +105,47 @@ fun AnalyticsPnlScreen(
             )
         }
 
+        // Subtab Switcher: P&L Model vs Plan-Fact Variance Bridge
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { activeSubTab = 0 },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (activeSubTab == 0) EmeraldPrimary else ExecutiveSurface,
+                        contentColor = if (activeSubTab == 0) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f).testTag("tab_pnl_model")
+                ) {
+                    Icon(Icons.Default.Assessment, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(tr("P&L & Breakeven", "P&L и Окупаемость"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = { activeSubTab = 1 },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (activeSubTab == 1) ElectricCyan else ExecutiveSurface,
+                        contentColor = if (activeSubTab == 1) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f).testTag("tab_plan_fact_bridge")
+                ) {
+                    Icon(Icons.Default.CompareArrows, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(tr("Plan-Fact Bridge", "План-Факт мост"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        if (activeSubTab == 1) {
+            item {
+                PlanFactVarianceCard(viewModel = viewModel)
+            }
+        } else {
         // 1. Top KPI Row: ROI % and Payback Period
         item {
             Row(
@@ -429,6 +477,7 @@ fun AnalyticsPnlScreen(
                     }
                 }
             }
+        }
         }
 
         item {

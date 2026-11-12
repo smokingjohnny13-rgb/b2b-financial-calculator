@@ -156,4 +156,139 @@ class FinancialArchitectureOptimizationsTest {
         assertTrue("ROIC must exceed corporate hurdle of 20%", roic.annualizedRoicPct > 20.0)
         assertTrue("Deal must be value accretive", roic.isValueAccretive)
     }
+
+    @Test
+    fun `test plan fact variance bridge mathematical decomposition and identity`() {
+        val result = com.example.domain.calculator.PlanFactVarianceEngine.calculate(
+            planPrice = 100.0,
+            planVolume = 1000,
+            planCost = 60.0,
+            planDays = 30,
+            actualPrice = 95.0,
+            actualVolume = 1100,
+            actualCost = 64.0,
+            actualDays = 50,
+            actualPenalties = 1500.0,
+            capitalRatePct = 18.0
+        )
+
+        // 1. Plan and Actual Totals
+        assertEquals(100000.0, result.planRevenue, 0.01)
+        assertEquals(60000.0, result.planCogs, 0.01)
+        assertEquals(40000.0, result.planGrossProfit, 0.01)
+        assertEquals(40.0, result.planMarginPct, 0.01)
+
+        assertEquals(104500.0, result.actualRevenue, 0.01) // 95 * 1100
+        assertEquals(70400.0, result.actualCogs, 0.01)     // 64 * 1100
+        assertEquals(34100.0, result.actualGrossProfit, 0.01) // 31 * 1100
+
+        // 2. Factorial Bridge Verification
+        // Volume Effect = (1100 - 1000) * (100 - 60) = +4,000.0
+        assertEquals(4000.0, result.volumeEffectProfit, 0.01)
+
+        // Price Effect = (95 - 100) * 1100 = -5,500.0
+        assertEquals(-5500.0, result.priceEffectProfit, 0.01)
+
+        // Cost Effect = (60 - 64) * 1100 = -4,400.0
+        assertEquals(-4400.0, result.costEffectProfit, 0.01)
+
+        // Penalties Effect = -1,500.0
+        assertEquals(-1500.0, result.penaltiesEffectProfit, 0.01)
+
+        // Deferral variance: -(Actual Deferral - Plan Deferral)
+        // Plan Deferral = 100k * 0.18 * 30/365 = 1,479.45
+        // Actual Deferral = 104.5k * 0.18 * 50/365 = 2,576.71
+        // Deferral Effect = -(2576.71 - 1479.45) = -1,097.26
+        assertEquals(-1097.26, result.dsoDeferralEffectProfit, 0.05)
+
+        // Mathematical Bridge Sum Identity:
+        // Sum of all 5 factors MUST equal total Net Profit Delta (up to rounding)
+        val bridgeSum = result.volumeEffectProfit +
+                result.priceEffectProfit +
+                result.costEffectProfit +
+                result.dsoDeferralEffectProfit +
+                result.penaltiesEffectProfit
+
+        assertEquals(result.netProfitDelta, bridgeSum, 0.1)
+
+        // Status must identify erosion due to multiple negative factors
+        assertEquals(com.example.domain.calculator.PlanFactHealthStatus.EROSION, result.status)
+        assertTrue(result.verdictRu.contains("Эрозия прибыли"))
+    }
+
+    @Test
+    fun `test early repayment in standard credit reduces tenure and total interest`() {
+        val standard = AmortizationEngine.calculate(
+            principal = 100000.0,
+            annualInterestRatePct = 12.0,
+            tenureMonths = 36,
+            frequency = PaymentFrequency.MONTHLY,
+            customPeriodicPayment = null
+        )
+        assertEquals(36, standard.schedule.size)
+        assertTrue("Standard total interest > 15,000", standard.totalInterest > 15000.0)
+
+        // Accelerate with 5,000 monthly payment
+        val accelerated = AmortizationEngine.calculate(
+            principal = 100000.0,
+            annualInterestRatePct = 12.0,
+            tenureMonths = 36,
+            frequency = PaymentFrequency.MONTHLY,
+            customPeriodicPayment = 5000.0
+        )
+        assertTrue(accelerated.isAccelerated)
+        assertTrue("Accelerated loan finishes earlier than 36 months", accelerated.schedule.size < 36)
+        assertTrue("Saved at least 10 periods", accelerated.periodsSaved >= 10)
+        assertTrue("Saved substantial interest", accelerated.interestSaved > 5000.0)
+        assertEquals(0.0, accelerated.schedule.last().remainingBalance, 0.05)
+    }
+
+    @Test
+    fun `test grace period with custom payment reduces principal during grace`() {
+        // 100k, 12 months grace at 0.01%, 36 months total, 10% post-grace
+        val withGraceCustom = AmortizationEngine.calculate(
+            principal = 100000.0,
+            annualInterestRatePct = 10.0,
+            tenureMonths = 36,
+            hasGracePeriod = true,
+            graceTenureMonths = 12,
+            graceInterestRatePct = 0.01,
+            postGraceInterestRatePct = 10.0,
+            frequency = PaymentFrequency.MONTHLY,
+            customPeriodicPayment = 3000.0
+        )
+
+        assertTrue(withGraceCustom.hasGracePeriod)
+        // In month 12 (end of grace), balance should be significantly lower than 100,000
+        val balanceEndGrace = withGraceCustom.schedule[11].remainingBalance
+        assertTrue("Balance after grace must be reduced by custom payments", balanceEndGrace < 70000.0)
+        assertTrue("Saved interest vs baseline", withGraceCustom.interestSaved > 0.0)
+    }
+
+    @Test
+    fun `test landed cost to deal synchronization math`() {
+        // FOB 10.0, express coeff 1.35
+        val landedResult = com.example.domain.calculator.LandedCostCalculator.calculateDirect(
+            fobPrice = 10.0,
+            coefficient = 1.35,
+            logisticsPct = 15.0,
+            dutyPct = 7.5,
+            vatPct = 20.0,
+            brokerFeesPct = 2.5
+        )
+        assertTrue("Landed cost per unit must be greater than FOB", landedResult.landedCost > 10.0)
+
+        // Deal Scoring verification with landed cost
+        val scoring = com.example.domain.calculator.DealScoringEngine.calculate(
+            sellingPrice = landedResult.landedCost / (1.0 - 0.35), // 35% margin
+            costPrice = landedResult.landedCost,
+            volumeUnits = 1000,
+            onInvoiceDiscountPct = 5.0,
+            offInvoiceBonusPct = 2.0,
+            paymentTermsDays = 30,
+            financingAnnualRatePct = 14.0
+        )
+        assertTrue("Net-Net Margin must remain healthy", scoring.netNetMarginPct > 20.0)
+        assertTrue("Deal revenue equals volume * net price", scoring.totalRevenue > 0.0)
+    }
 }

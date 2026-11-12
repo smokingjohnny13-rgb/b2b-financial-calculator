@@ -234,10 +234,9 @@ fun FinancingFxScreen(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (amortization.hasGracePeriod) {
-                                Row(
+                                Column(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
                                         text = if (selectedScheme == AmortizationScheme.DIFFERENTIATED)
@@ -248,12 +247,11 @@ fun FinancingFxScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         letterSpacing = 0.5.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.weight(1f, fill = false),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
                                     Row(
+                                        modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {

@@ -58,6 +58,9 @@ import com.example.domain.calculator.TradeOffArbitrageResult
 import com.example.domain.calculator.BasketSkuItem
 import com.example.domain.calculator.BlendedBasketResult
 import com.example.domain.calculator.RebateTierSimulationResult
+import com.example.domain.calculator.PlanFactVarianceEngine
+import com.example.domain.calculator.PlanFactResult
+import com.example.domain.calculator.PlanFactHealthStatus
 import com.example.data.model.ClientNegotiationProfile
 import com.example.data.model.DealApprovalStatus
 import com.example.data.model.DealScoringLevel
@@ -241,6 +244,35 @@ class BigDealViewModel(
         )
     )
     val tornadoResult: StateFlow<TornadoAnalysisResult> = _tornadoResult.asStateFlow()
+
+    // 5c. Plan-Fact & Variance Bridge (Факторный анализ отклонений прибыли)
+    val planFactPlanPrice = MutableStateFlow("100.0")
+    val planFactPlanVolume = MutableStateFlow("1000")
+    val planFactPlanCost = MutableStateFlow("60.0")
+    val planFactPlanDays = MutableStateFlow("30")
+
+    val planFactActualPrice = MutableStateFlow("96.0")
+    val planFactActualVolume = MutableStateFlow("1050")
+    val planFactActualCost = MutableStateFlow("63.0")
+    val planFactActualDays = MutableStateFlow("48")
+    val planFactActualPenalties = MutableStateFlow("500.0")
+    val planFactCapitalRate = MutableStateFlow("18.0")
+
+    private val _planFactResult = MutableStateFlow(
+        PlanFactVarianceEngine.calculate(
+            planPrice = 100.0,
+            planVolume = 1000,
+            planCost = 60.0,
+            planDays = 30,
+            actualPrice = 96.0,
+            actualVolume = 1050,
+            actualCost = 63.0,
+            actualDays = 48,
+            actualPenalties = 500.0,
+            capitalRatePct = 18.0
+        )
+    )
+    val planFactResult: StateFlow<PlanFactResult> = _planFactResult.asStateFlow()
 
     // Global Multi-Currency & Language Support
     val appLanguage = MutableStateFlow(com.example.ui.i18n.AppLanguage.EN)
@@ -857,6 +889,92 @@ class BigDealViewModel(
         updatePnlCalculations()
         viewModelScope.launch {
             _userMessage.emit(str("Applied 12-Month Cohort Forecast to Contract P&L", "Прогноз когорты 12м применен к P&L контракта", appLanguage.value))
+        }
+    }
+
+    // --- Plan-Fact Variance Bridge Methods ---
+    fun updatePlanFactCalculations() {
+        val pp = planFactPlanPrice.value.toCleanDouble() ?: 100.0
+        val pv = planFactPlanVolume.value.toCleanInt() ?: 1000
+        val pc = planFactPlanCost.value.toCleanDouble() ?: 60.0
+        val pd = planFactPlanDays.value.toCleanInt() ?: 30
+
+        val ap = planFactActualPrice.value.toCleanDouble() ?: 96.0
+        val av = planFactActualVolume.value.toCleanInt() ?: 1050
+        val ac = planFactActualCost.value.toCleanDouble() ?: 63.0
+        val ad = planFactActualDays.value.toCleanInt() ?: 48
+        val aPen = planFactActualPenalties.value.toCleanDouble() ?: 500.0
+        val rate = planFactCapitalRate.value.toCleanDouble() ?: 18.0
+
+        _planFactResult.value = PlanFactVarianceEngine.calculate(
+            planPrice = pp,
+            planVolume = pv,
+            planCost = pc,
+            planDays = pd,
+            actualPrice = ap,
+            actualVolume = av,
+            actualCost = ac,
+            actualDays = ad,
+            actualPenalties = aPen,
+            capitalRatePct = rate
+        )
+    }
+
+    fun importPlanFromCurrentDeal() {
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 60.0
+        val days = dealApprovalPaymentDays.value.toCleanInt() ?: 30
+        val rate = dealApprovalFinancingRate.value.toCleanDouble() ?: 18.0
+
+        planFactPlanPrice.value = if (sp % 1.0 == 0.0) sp.toInt().toString() else String.format(Locale.US, "%.2f", sp)
+        planFactPlanVolume.value = vol.toString()
+        planFactPlanCost.value = if (cp % 1.0 == 0.0) cp.toInt().toString() else String.format(Locale.US, "%.2f", cp)
+        planFactPlanDays.value = days.toString()
+        planFactCapitalRate.value = rate.toString()
+
+        // Default actual to plan if actual is empty or zero
+        val curActPrice = planFactActualPrice.value.toCleanDouble() ?: 0.0
+        if (curActPrice <= 0.0) {
+            planFactActualPrice.value = planFactPlanPrice.value
+            planFactActualVolume.value = planFactPlanVolume.value
+            planFactActualCost.value = planFactPlanCost.value
+            planFactActualDays.value = planFactPlanDays.value
+        }
+
+        updatePlanFactCalculations()
+        viewModelScope.launch {
+            _userMessage.emit(
+                str(
+                    "Plan imported from Deal Desk (Price: ${formatCurrency(sp)}, Volume: $vol pcs, Cost: ${formatCurrency(cp)})",
+                    "План импортирован из сделки (Цена: ${formatCurrency(sp)}, Объем: $vol шт, Себестоимость: ${formatCurrency(cp)})",
+                    appLanguage.value
+                )
+            )
+        }
+    }
+
+    fun applyFactToPnl() {
+        val ap = planFactActualPrice.value.toCleanDouble() ?: 100.0
+        val av = planFactActualVolume.value.toCleanInt() ?: 1000
+        val ac = planFactActualCost.value.toCleanDouble() ?: 60.0
+        val totalRev = ap * av
+        val totalCogs = ac * av
+
+        pnlRevenue.value = totalRev.toInt().toString()
+        pnlCogs.value = totalCogs.toInt().toString()
+        unitPrice.value = if (ap % 1.0 == 0.0) ap.toInt().toString() else String.format(Locale.US, "%.2f", ap)
+        unitCost.value = if (ac % 1.0 == 0.0) ac.toInt().toString() else String.format(Locale.US, "%.2f", ac)
+        updatePnlCalculations()
+
+        viewModelScope.launch {
+            _userMessage.emit(
+                str(
+                    "Actual performance (${formatCurrency(totalRev)}) transferred to main P&L model",
+                    "Фактические результаты (${formatCurrency(totalRev)}) перенесены в P&L",
+                    appLanguage.value
+                )
+            )
         }
     }
 
