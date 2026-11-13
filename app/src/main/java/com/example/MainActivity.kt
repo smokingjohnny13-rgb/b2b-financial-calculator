@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 NotaBigDeal (www.linkedin.com/in/snitkor) — Dual-Licensed: AGPLv3 or Commercial
 package com.example
 
 import android.os.Bundle

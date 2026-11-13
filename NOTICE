@@ -1,0 +1,24 @@
+NotaBigDeal — Executive B2B Pricing Engine, Deal Desk & Negotiation Workstation
+Copyright (C) 2026 NotaBigDeal (Author: www.linkedin.com/in/snitkor)
+
+This project is distributed under a Dual-Licensing model:
+
+1. OPEN SOURCE LICENSE — GNU Affero General Public License v3.0 (AGPL-3.0)
+   Unless covered by a separate written commercial agreement, this software,
+   its architecture, financial calculation engines (domain/calculator/*), AI
+   integrations (data/ai/*), export pipelines (service/*), and UI components
+   are licensed under the GNU Affero General Public License v3.0 (or, at your
+   option, any later version). See the LICENSE file for the full license text.
+
+   Under Section 13 of AGPLv3, any modified version used to interact with users
+   over a computer network (including SaaS, hosted backends, or derivative mobile
+   clients connecting to modified services) must provide all users access to the
+   complete Corresponding Source under AGPLv3.
+
+2. COMMERCIAL / ENTERPRISE LICENSE
+   For proprietary or closed-source integration, internal corporate distribution
+   without copyleft source-disclosure obligations, white-label/OEM licensing, or
+   enterprise SLA agreements, a Commercial License is required.
+
+   Contact for Commercial Licensing:
+   LinkedIn: https://www.linkedin.com/in/snitkor

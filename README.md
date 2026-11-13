@@ -3,10 +3,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Tests-56%20Passed%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-72%20Passed%20(100%25)-brightgreen.svg)]()
 [![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20MVVM%20%2B%20Offline--First-orange.svg)]()
 [![AI Engine](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200ms%20Offline-blueviolet.svg)]()
 [![Reports](https://img.shields.io/badge/Reports-2--Page%20Vector%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3%20%2F%20Commercial-blue.svg)](LICENSE)
 
 [🇬🇧 English](README.md) | [🇷🇺 Читать на русском](README_RU.md)
 
@@ -53,8 +54,9 @@ a commercial leader needs answers within seconds:
 │  • Retail Price Waterfall     │  • Net Working Capital (NWC)     │  • Boardroom 2-Page Vector PDF│
 │  • Give-Get Concession Engine │  • Cash Conversion Cycle (CCC)   │  • Excel / CSV UTF-8 BOM Export│
 │  • Tornado Profit Sensitivity │  • Invoice Factoring Arbitrage   │  • Deal Scoring Traffic Light │
-│  • Promo Break-Even Solver    │  • Floating Rate & Grace Periods │  • Gemini 3.8 Flash AI Audit  │
-│  • Landed Cost (FOB ➔ Whs)    │  • Multi-Currency Debt Basket    │  • Cloud Vault (Firestore)    │
+│  • Promo Break-Even Solver    │  • Floating Rate & Grace Periods │  • Plan-Fact Variance Bridge  │
+│  • Landed Cost (FOB ➔ Whs)    │  • Early Repayment Calculator    │  • Gemini 3.8 Flash AI Audit  │
+│  • Commercial Document OCR    │  • Multi-Currency Debt Basket    │  • Cloud Vault (Firestore)    │
 └───────────────────────────────┴──────────────────────────────────┴───────────────────────────────┘
 ```
 
@@ -113,6 +115,10 @@ Structures capital equipment leasing, vendor financing, and long-term installmen
 - **Two-Tier Grace Period Amortization**:
   - Subsidized or 0% interest rate during moratorium periods ($1 \dots N_{grace}$);
   - Standard annuity amortization over the remaining tenure ($N_{grace}+1 \dots N_{total}$);
+- **Custom Installment & Early Repayment Modeling**:
+  - Direct input of custom monthly payment amounts both during the grace moratorium and standard repayment phase;
+  - Excess payment directly amortizes principal during grace, calculating exact interest saved (`interestSaved`) and shortened loan tenure (`periodsSaved`);
+  - Actuarial true Effective APR (IRR) calculation via Newton-Raphson method;
 - **Floating Rate Loan Modeling (Benchmark + Spread)**:
   - Models floating benchmark index (SOFR, RUONIA, Central Bank Key Rate) plus bank spread;
   - Configurable rate reset intervals (quarterly, semi-annually, annually) with annual rate trend shifts;
@@ -195,6 +201,19 @@ Native on-device spreadsheet generator with UTF-8 BOM (`\uFEFF`) and RFC 4180 es
 - **Structured JSON Schema Extraction**: Accurately recognizes Shelf RSP, VAT rate %, Retailer Margin %, Front On-Invoice Discount %, Back Retro-Rebates %, Logistics per unit, Supplier COGS, Payment Deferral Days, Volume Quantum, and Currency;
 - **1-Click Deal Desk Transfer**: Injects all extracted commercial parameters directly into the Price Waterfall, Deal Approval Scoring, and Payment Terms engines without manual data entry.
 
+### 15. Plan-Fact Variance Bridge & EBITDA Deviation Analysis (P&L Screen)
+Deconstructs contract performance variance between planned underwriting and actual execution:
+- **5-Factor Variance Decomposition**:
+  $$\Delta \text{Net Profit} = \text{Volume Effect} + \text{Price Effect} + \text{Cost Effect} + \text{DSO Deferral Drag} - \text{Penalties}$$
+  - **Volume Effect**: $(Q_{fact} - Q_{plan}) \times (P_{plan} - C_{plan})$
+  - **Price Effect**: $(P_{fact} - P_{plan}) \times Q_{fact}$
+  - **Cost / COGS Effect**: $(C_{plan} - C_{fact}) \times Q_{fact}$
+  - **DSO Deferral / Working Capital Drag**: $-(CostOfCarry_{fact} - CostOfCarry_{plan})$
+  - **Penalties & Claims**: Direct contract deduction impact.
+- **Mathematical Exactness**: The sum of all 5 factors is rigorously identical to the change in net profit ($\Delta \text{Net Profit}$) without fudge factors;
+- **Traffic Light Deal Health**: Automated classification into *Outperforming*, *Acceptable Variance*, and *Critical Margin Erosion* with bilingual executive commentary;
+- **1-Click Deal Desk Interoperability**: Instant import of planned baseline from the active deal (`importPlanFromCurrentDeal()`) and push of actual contract results into P&L (`applyFactToPnl()`).
+
 ---
 
 ## Technical Architecture & Code Quality
@@ -206,12 +225,12 @@ com.example
 │   ├── model        # Immutable Kotlin Data Models (SavedDeal, AmortizationSummary, LandedCost)
 │   └── repository   # AuthRepository & DealRepository (Firestore + Cache + Credential Manager)
 ├── domain
-│   ├── calculator   # Pure Domain Math Engines (CashGap, GiveGet, Tornado, Waterfall, PnL, Amortization)
+│   ├── calculator   # Pure Domain Math Engines (CashGap, GiveGet, Tornado, Waterfall, PnL, Amortization, PlanFact)
 │   └── model        # Financial Formula Glossary (Offline Definitions & KAM Tips)
 ├── service          # Export Engines: PdfExportService (2-Page Vector PDF) & CsvExportService (UTF-8 BOM)
 ├── util             # NumberUtils (Safe localized decimal parsing for comma/dot keyboards)
 └── ui
-    ├── components   # Modular Material 3 Cards (CommercialOcrDialog, Tornado, GiveGet, CashGap, Waterfall)
+    ├── components   # Modular Material 3 Cards (PlanFactVarianceCard, CommercialOcrDialog, Tornado, GiveGet)
     ├── screens      # 6 Root Screens (Margin, Financing, Pipeline, Landed, Vault, Analytics)
     ├── theme        # Obsidian Executive Dark & Nordic Light Slate (Dynamic Tokens)
     └── viewmodel    # BigDealViewModel (Reactive StateFlow, Safe Decimals & Coroutines)
@@ -223,7 +242,7 @@ com.example
   - **Obsidian Executive Dark**: Deep midnight palette (`#0B101D`) with emerald accents (`#10B981`) designed to reduce visual fatigue during evening sessions;
   - **Nordic Light Slate**: Soft glare-free paper palette (`#F4F6F9`) with crisp slate typography (`#0F172A`) for boardroom projectors and daylight;
 - **Zero Third-Party PDF/Excel Bloat**: Pure native vector canvas and byte-stream CSV generation with zero external heavy libraries, zero memory leaks, and native `ACTION_SEND` intent sharing;
-- **Comprehensive Unit Testing**: 52 unit tests verifying financial math, amortization schedules, Tornado sensitivities, factoring arbitrage, and CSV structures.
+- **Comprehensive Unit Testing**: 72 unit tests verifying financial math, amortization schedules, Tornado sensitivities, factoring arbitrage, early repayment, and Plan-Fact variance bridges.
 
 ---
 
@@ -246,7 +265,19 @@ Execute the test suite verifying all financial algorithms, rounding guards, floa
 ```bash
 gradle :app:testDebugUnitTest
 ```
-*(52 unit tests, 100% passing)*.
+*(72 unit tests, 100% passing)*.
+
+---
+
+## Dual-Licensing & Copyright
+
+**NotaBigDeal** is dual-licensed to protect its financial architecture, calculation engines, and workflows:
+
+1. **Open Source License — GNU Affero General Public License v3.0 (`AGPL-3.0-or-later`)**:
+   - Available for open-source usage, study, and modification under the terms of [`LICENSE`](LICENSE) (see also [`NOTICE`](NOTICE)).
+   - Any modified derivative software — including network-accessible services, SaaS deployments, or modified mobile distributions (Section 13) — must disclose the complete Corresponding Source under AGPLv3.
+2. **Commercial / Enterprise License**:
+   - Required for proprietary/closed-source integration, OEM/white-label distribution, or corporate deployment without copyleft source-disclosure obligations.
 
 ---
 
@@ -254,6 +285,6 @@ gradle :app:testDebugUnitTest
 
 Developed for commercial directors, enterprise Key Account Managers, and financial analysts.
 
-- **LinkedIn**: [www.linkedin.com/in/snitkor](https://www.linkedin.com/in/snitkor)
+- **LinkedIn (Commercial Licensing & Inquiries)**: [www.linkedin.com/in/snitkor](https://www.linkedin.com/in/snitkor)
 - **App Name**: **NotaBigDeal**
-- **License**: Proprietary / Enterprise Confidential
+- **License**: Dual-Licensed — [GNU AGPLv3](LICENSE) / Commercial License (see [NOTICE](NOTICE))
