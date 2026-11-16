@@ -17,12 +17,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -89,7 +89,7 @@ fun PlanFactVarianceCard(
     val statusIcon = when (planFact.status) {
         PlanFactHealthStatus.OUTPERFORMING -> Icons.Default.CheckCircle
         PlanFactHealthStatus.ACCEPTABLE -> Icons.Default.Warning
-        PlanFactHealthStatus.EROSION -> Icons.Default.TrendingDown
+        PlanFactHealthStatus.EROSION -> Icons.AutoMirrored.Filled.TrendingDown
     }
 
     Box(
@@ -120,7 +120,7 @@ fun PlanFactVarianceCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CompareArrows,
+                            imageVector = Icons.AutoMirrored.Filled.CompareArrows,
                             contentDescription = null,
                             tint = ElectricCyan,
                             modifier = Modifier.size(20.dp)
@@ -454,7 +454,7 @@ fun PlanFactVarianceCard(
                     .height(44.dp)
                     .testTag("btn_apply_fact_to_pnl")
             ) {
-                Icon(Icons.Default.TrendingUp, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = if (isRu) "Перенести факт в основную модель P&L" else "Apply Actuals to P&L Model",

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dangerous
@@ -28,9 +30,7 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Percent
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -234,7 +234,7 @@ fun DealApprovalScoringCard(
                 title = tr("3. COST OF DEFERRAL", "3. СТОИМОСТЬ ОТСРОЧКИ"),
                 primaryValue = "-$sym ${"%.2f".format(scoringResult.costOfDeferralAmount)}",
                 subtitle = "${scoringResult.paymentTermsDays} ${tr("days", "дн.")} (${"%.1f".format(scoringResult.costOfDeferralPct)}%)",
-                icon = Icons.Default.TrendingDown,
+                icon = Icons.AutoMirrored.Filled.TrendingDown,
                 accentColor = Color(0xFFF59E0B),
                 modifier = Modifier.weight(1f)
             )
@@ -414,7 +414,7 @@ fun DealApprovalScoringCard(
                             .testTag("submit_deal_approval_btn")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
                             modifier = Modifier.size(15.dp),
                             tint = Color.Black
@@ -503,7 +503,7 @@ fun DealApprovalScoringCard(
                             .testTag("submit_deal_approval_btn")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
                             modifier = Modifier.size(15.dp),
                             tint = Color.Black

@@ -18,10 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.MonetizationOn
-import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Timelapse
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -134,7 +134,7 @@ fun AnalyticsPnlScreen(
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f).testTag("tab_plan_fact_bridge")
                 ) {
-                    Icon(Icons.Default.CompareArrows, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Icon(Icons.AutoMirrored.Filled.CompareArrows, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(tr("Plan-Fact Bridge", "План-Факт мост"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
@@ -160,7 +160,7 @@ fun AnalyticsPnlScreen(
                     subtitle = tr("Gain on Investment", "Доходность на вложенный капитал"),
                     badgeText = if (pnl.roiPct >= 100) tr("2x+ Return", "Доходность 2x+") else if (pnl.roiPct >= 0) tr("Positive", "В плюсе") else tr("Deficit", "Убыток"),
                     badgeColor = if (pnl.roiPct >= 0) EmeraldPrimary else MaterialTheme.colorScheme.error,
-                    icon = Icons.Default.ShowChart,
+                    icon = Icons.AutoMirrored.Filled.ShowChart,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),

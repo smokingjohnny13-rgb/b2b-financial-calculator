@@ -27,8 +27,8 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.automirrored.filled.Rule
 import androidx.compose.material.icons.filled.Percent
-import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Warning
@@ -466,7 +466,7 @@ fun KamNegotiationCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Rule,
+                            imageVector = Icons.AutoMirrored.Filled.Rule,
                             contentDescription = null,
                             tint = GoldAccent,
                             modifier = Modifier.size(20.dp)

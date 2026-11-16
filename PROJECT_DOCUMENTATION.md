@@ -11,16 +11,21 @@
 ---
 
 ### 2. Технологический стек и архитектура
-- **Платформа:** Android (API 26+), 100% Kotlin.
-- **UI Framework:** Jetpack Compose (Declarative UI) в стиле **Material Design 3 (M3)** с эксклюзивной темной палитрой *Executive Midnight & Emerald Primary* (`#10B981`), контрастным цианом (`#06B6D4`) и золотыми акцентами (`#F59E0B`).
+- **Платформа:** Android (API 26+), 100% Kotlin (2.2.10).
+- **UI Framework:** Jetpack Compose (Declarative UI) в стиле **Material Design 3 (M3)** с двойной темой (*Obsidian Executive Dark* и *Nordic Light Slate*), фирменными акцентами *Emerald Primary* (`#10B981`), *Electric Cyan* (`#06B6D4`) и *Gold Accent* (`#F59E0B`).
 - **Архитектура:** Clean Architecture + MVVM (`BigDealViewModel` + `StateFlow` + реактивные потоки данных).
+- **AI и компьютерное зрение (Dual-Core):**
+  - **Gemini 3.8 Flash** через Firebase AI Logic: экспресс-аудит рисков сделки и мультимодальный OCR-сканер коммерческих документов (камера / Android Photo Picker);
+  - **Детерминированный офлайн-аудитор (0ms):** гарантированный локальный скоринг рисков и рекомендаций при отсутствии сети.
 - **Хранение данных и бэкенд:**
   - Firebase Authentication (Google Sign-In via Credential Manager);
-  - Cloud Firestore с автоматической фоновой двусторонней синхронизацией сделок (`DealRepository`);
+  - Cloud Firestore с автоматической фоновой двусторонней синхронизацией сделок и План-Факта (`DealRepository`);
   - Offline-first архитектура с сохранением локального состояния.
-- **Экспорт документов:** Встроенный генератор векторных документов `PdfExportService` (печать КП в формате A4 с цветовым кодированием метрик и таблицами амортизации).
+- **Экспорт документов:**
+  - Встроенный генератор векторных документов `PdfExportService` (2-страничный отчёт A4 + одностраничный LinkedIn Product Flyer);
+  - Генератор таблиц `CsvExportService` (UTF-8 BOM для Excel/Sheets с 5 секциями модели сделки и реестром Deal Vault).
 - **Интернационализация и локализация:** Сквозное мгновенное переключение языка (🇺🇸 EN / 🇷🇺 RU) через `LocalAppLanguage` и функцию `tr()`.
-- **Мультивалютная система:** Динамический выбор и конвертация базовой валюты (USD `$`, EUR `€`, RUB `₽`, BYN `Br`, KZT `₸`, AED `AED`, GBP `£`, CNY `¥`, TRY `₺` и др.) с интеллектуальным пробельным форматированием.
+- **Мультивалютная система:** Динамический выбор и конвертация базовой валюты (USD `$`, EUR `€`, RUB `₽`, BYN `Br`, KZT `₸`, AED `AED`, GBP `£`, CNY `¥`, TRY `₺` и др.) с поддержкой локализованного ввода запятых/точек (`NumberUtils`).
 
 ---
 
@@ -151,69 +156,102 @@
 
 ```
 app/src/main/java/com/example/
-├── MainActivity.kt                      # Корневой экран, TopAppBar, быстрая кнопка ⚡ КАМ, навигация
-├── domain/calculator/
-│   ├── AmortizationEngine.kt            # Расчет кредитов и амортизации
-│   ├── CashGapEngine.kt                 # Моделирование кассового разрыва и овердрафта
-│   ├── CommercialAnalystEngine.kt       # Trade-off (Скидка/Отсрочка), корзина SKU, ступени ретро
-│   ├── CurrencyEngine.kt                # Мультивалютные курсы и конвертация
-│   ├── FunnelCalculator.kt              # Воронка продаж и конверсии
-│   ├── FxStressTestEngine.kt            # FX стресс-тест и порог обнуления маржи
-│   ├── HurdleRoicEngine.kt              # ROIC vs WACC барьерная ставка
-│   ├── KamNegotiationEngine.kt          # BATNA коридор, штрафы SLA, One-Pager шпаргалка
-│   ├── LandedCostCalculator.kt          # FOB экспресс-коэффициенты и себестоимость
-│   ├── LtvCalculator.kt                 # LTV, CAC и юнит-экономика
-│   ├── MarginMarkupSolver.kt            # Маржа, наценка, коэффициенты
-│   ├── MultiCurrencyCreditEngine.kt     # Мультивалютный синдицированный кредит
-│   ├── PaymentTermsEngine.kt            # Стоимость отсрочки и сконто
-│   ├── PnlRoiEngine.kt                  # P&L, EBITDA, Точка безубыточности
-│   ├── PriceWaterfallEngine.kt          # Ценовой водопад ритейла Net-Net
-│   └── PromoBreakEvenEngine.kt          # Безубыточность промо-скидок
+├── MainActivity.kt                      # Корневой экран, TopAppBar, AI-аудит, OCR, ∑ Глоссарий, ⚡ КАМ
+├── data/
+│   ├── ai/                              # CommercialDocumentOcrService & AI Deal Auditor (Gemini 3.8 Flash)
+│   ├── model/                           # SavedDeal (вкл. Plan-Fact), AmortizationSummary, LandedCost, PnlModel
+│   └── repository/                      # AuthRepository & DealRepository (Firestore + Cache + Credential Manager)
+├── domain/
+│   ├── calculator/
+│   │   ├── AmortizationEngine.kt        # Кредиты, грейс-периоды, досрочное погашение, плавающие ставки, IRR
+│   │   ├── CashGapEngine.kt             # Кассовый разрыв (CCC), NWC и арбитраж факторинга
+│   │   ├── CommercialAnalystEngine.kt   # Trade-off (Скидка/Отсрочка), корзина SKU, ступени ретро
+│   │   ├── CurrencyEngine.kt            # Мультивалютные курсы и конвертация
+│   │   ├── DealScoringEngine.kt         # Автоматический светофор скоринга сделки
+│   │   ├── FunnelCalculator.kt          # Воронка продаж и конверсии
+│   │   ├── FxStressTestEngine.kt        # FX стресс-тест и порог обнуления маржи
+│   │   ├── GiveGetEngine.kt             # Компенсационный движок уступок Give-Get
+│   │   ├── HurdleRoicEngine.kt          # ROIC vs WACC барьерная ставка
+│   │   ├── KamNegotiationEngine.kt      # BATNA коридор, штрафы SLA, One-Pager шпаргалка
+│   │   ├── LandedCostCalculator.kt      # FOB экспресс-коэффициенты и себестоимость
+│   │   ├── LtvCalculator.kt             # LTV, CAC и юнит-экономика
+│   │   ├── MarginMarkupSolver.kt        # Маржа, наценка, коэффициенты
+│   │   ├── MultiCurrencyCreditEngine.kt # Мультивалютный синдицированный кредит
+│   │   ├── PaymentTermsEngine.kt        # Стоимость отсрочки и сконто
+│   │   ├── PlanFactVarianceEngine.kt    # 5-факторный План-Факт мост отклонений прибыли
+│   │   ├── PnlRoiEngine.kt              # P&L, EBITDA, Точка безубыточности
+│   │   ├── PriceWaterfallEngine.kt      # Ценовой водопад ритейла Net-Net
+│   │   ├── PromoBreakEvenEngine.kt      # Безубыточность промо-скидок
+│   │   └── TornadoSensitivityEngine.kt  # Диаграмма торнадо (рычаги McKinsey/DuPont)
+│   └── model/
+│       └── FinancialFormulaGlossary.kt  # Офлайн-справочник формул (кнопка ∑) и советы для KAM
 ├── ui/
 │   ├── components/
 │   │   ├── CommercialAnalystCard.kt     # UI блока Коммерческого аналитика
+│   │   ├── CommercialOcrDialog.kt       # UI сканера коммерческих документов (Gemini OCR)
+│   │   ├── FinancialFormulaDialog.kt    # UI справочника формул ∑
 │   │   ├── KamNegotiationCard.kt        # UI блока Переговорного коридора и SLA
 │   │   ├── KamOnePagerDialog.kt         # UI мобильной шпаргалки One-Pager
-│   │   ├── CashGapTimelineCard.kt       # UI таймлайна кассового разрыва
+│   │   ├── CashGapTimelineCard.kt       # UI таймлайна кассового разрыва и факторинга
 │   │   ├── FxStressTestCard.kt          # UI стресс-теста валют
 │   │   ├── HurdleRoicGuardrailCard.kt   # UI барьерной ставки ROIC
 │   │   ├── LandedCostModeler.kt         # UI экспресс-моделера FOB
 │   │   ├── MarginVsMarkupCalculator.kt  # UI калькулятора маржа/наценка
 │   │   ├── MultiCurrencyCreditCard.kt   # UI мультивалютного кредита
 │   │   ├── PaymentTermsCard.kt          # UI стоимости отсрочки
+│   │   ├── PlanFactVarianceCard.kt      # UI факторного моста План-Факт
 │   │   ├── PriceWaterfallCard.kt        # UI водопада цен сети
 │   │   ├── PromoBreakEvenCard.kt        # UI промо-скидок
 │   │   └── RoiPnlModeler.kt             # UI P&L и когортного LTV
 │   ├── screens/
-│   │   ├── FinancingFxScreen.kt         # Вкладка 1: Финансирование, кассовый разрыв, FX, ROIC
+│   │   ├── FinancingFxScreen.kt         # Вкладка 1: Финансирование, грейс/досрочное погашение, NWC, FX, ROIC
 │   │   ├── LandedCostScreen.kt          # Вкладка 2: ВЭД, пошлины, FOB себестоимость
 │   │   ├── MarginMarkupScreen.kt        # Вкладка 3: Маржа, Водопад, Промо, Отсрочка, КАМ, Аналитик
 │   │   ├── PipelineLtvScreen.kt         # Вкладка 4: Воронка продаж, LTV/CAC когорты
-│   │   ├── AnalyticsPnlScreen.kt        # Вкладка 5: Аналитика P&L, Break-Even
-│   │   └── DealVaultScreen.kt           # Вкладка 6: Хранилище сделок, облако, PDF
+│   │   ├── AnalyticsPnlScreen.kt        # Вкладка 5: Аналитика P&L, Break-Even, План-Факт мост
+│   │   └── DealVaultScreen.kt           # Вкладка 6: Хранилище сделок, облако, PDF / CSV экспорт
 │   ├── i18n/
 │   │   └── I18n.kt                      # Модуль мультиязычности (EN / RU)
 │   └── viewmodel/
 │       └── BigDealViewModel.kt          # Главная ViewModel со всеми реактивными StateFlow
+├── util/
+│   └── NumberUtils.kt                   # Устойчивый локализованный парсинг чисел (запятая/точка)
 └── service/
-    └── PdfExportService.kt              # Генерация PDF коммерческих предложений A4
+    ├── PdfExportService.kt              # Генерация 2-страничного PDF КП (вкл. План-Факт) и LinkedIn Flyer
+    └── CsvExportService.kt              # Экспорт в Excel/CSV (UTF-8 BOM) модели сделки и реестра Deal Vault
 ```
 
 ---
 
-#### Этап 6. Реактивная синхронизация и адаптивная верстка калькулятора маржи
-21. **Реактивный двусторонний калькулятор «Маржа vs Наценка»:**
-   - Исправлена верстка заголовка: гибкий вес заголовка с обрезкой текста и защитой от вертикального схлопывания бейджа множителя (`softWrap = false`, `maxLines = 1`).
-   - Добавлена сквозная реактивная синхронизация через `LaunchedEffect(initialMarginPct, sampleBaseCost)`: изменения в шапке сделки мгновенно обновляют ползунки и инпуты модуля.
-   - Управление ползунками, быстрый выбор пресетов и ввод базовой себестоимости в реальном времени пересчитывают валовую маржу, наценку и цену сделки без задержек.
-   - Форматирование отпускных цен оптимизировано до сотых долей без плавающих артефактов.
+#### Этап 8. Реактивность, AI OCR, Досрочное погашение и План-Факт (Variance Bridge)
+25. **Реактивный двусторонний калькулятор «Маржа vs Наценка»:**
+    - Исправлена верстка заголовка с защитой от схлопывания бейджа множителя (`softWrap = false`, `maxLines = 1`) и добавлена сквозная синхронизация через `LaunchedEffect`.
+26. **Расширенная амортизация: Двухставочный грейс-период, Досрочное погашение и Плавающие ставки:**
+    - Поддержка льготной и пост-грейс процентной ставки (`graceInterestRatePct`, `postGraceInterestRatePct`), ручного ввода кастомного платежа в грейс и основной фазе с прямым списанием тела долга (`periodsSaved`, `interestSaved`).
+    - Расчет истинной эффективной ставки ПСК / IRR методом Ньютона–Рафсона.
+    - Моделирование плавающих ставок (`benchmark + spread`) с настраиваемой частотой пересмотра.
+27. **Мультимодальный OCR-сканер коммерческих документов (`CommercialDocumentOcrService`):**
+    - Распознавание условий КП, спецификаций и инвойсов с камеры или из галереи (`PickVisualMedia`) с помощью Gemini 3.8 Flash в структурированный JSON.
+    - Перенос распознанных РРЦ, НДС, маржи сети, скидок, ретро-бонусов, логистики, себестоимости, отсрочки и объема в Deal Desk в 1 клик.
+28. **Сквозной План-Факт и факторный мост отклонений (`PlanFactVarianceEngine`):**
+    - Точная 5-факторная декомпозиция $\Delta \text{Net Profit} = \text{Volume} + \text{Price} + \text{Cost} + \text{DSO} - \text{Penalties}$ на вкладке P&L.
+    - Интеграция с **PDF** (Секция 9 на 2-й странице), **Excel/CSV** (Секция 5), **офлайн-глоссарием формул (`∑`)** (`plan_fact_variance`) и **Deal Vault / Firestore** (сохранение и восстановление всех 10 параметров План-Факта внутри `SavedDeal`).
 
 ---
 
-### 5. Руководство по проверке и тестированию
-- Запуск тестов: `gradle :app:testDebugUnitTest`
+### 5. Лицензирование (Dual-Licensing / AGPLv3)
+Архитектура **NotaBigDeal** защищена моделью двойного лицензирования:
+1. **GNU Affero General Public License v3.0 (`AGPL-3.0-or-later`)** — см. файлы [`LICENSE`](LICENSE) и [`NOTICE`](NOTICE): открытое использование и модификация с обязательным раскрытием исходного кода всех производных версий и сетевых/SaaS-сервисов (Section 13 AGPLv3).
+2. **Commercial / Enterprise License** — проприетарная лицензия для закрытой коммерческой интеграции, корпоративного внедрения или white-label дистрибуции без обязательств раскрытия кода (контакт: `www.linkedin.com/in/snitkor`).
+
+---
+
+### 6. Руководство по проверке и тестированию
+- Запуск тестов: `gradle :app:testDebugUnitTest` (73 пройденных юнит-теста + 1 skipped Robolectric, 0 ошибок):
   - `KamAndCommercialAnalystTest` — тесты коридора BATNA, штрафов SLA, trade-off и корзины SKU;
   - `BigDealCalculatorsTest` — тесты LTV/CAC, амортизации, водопада цен, кассового разрыва, FX стресс-теста и ROIC;
+  - `FinancialArchitectureOptimizationsTest` — тесты двухставочного грейс-периода, досрочного погашения, факторинга P2, Tornado, Plan-Fact моста и локализованного ввода;
+  - `CsvExportServiceTest` — тесты RFC 4180 экранирования, 5 секций CSV (включая План-Факт), реестра Deal Vault и глоссария формул (`plan_fact_variance`);
   - `MarginVsMarkupTest` — тесты взаимосвязи маржи и наценки;
   - `LandedCostCalculatorTest` — тесты прямого и реверсивного расчета FOB и профилей стран.
 - Проверка компиляции: `compile_applet`.
