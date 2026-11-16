@@ -120,7 +120,18 @@ class DealRepository(
                                 roiPct = doc.getDouble("roiPct") ?: 0.0,
                                 paybackMonths = doc.getDouble("paybackMonths") ?: 0.0,
                                 updatedAt = doc.getLong("updatedAt") ?: System.currentTimeMillis(),
-                                createdBy = uid
+                                createdBy = uid,
+                                hasPlanFactData = doc.getBoolean("hasPlanFactData") ?: false,
+                                planFactPlanPrice = doc.getDouble("planFactPlanPrice") ?: 100.0,
+                                planFactPlanVolume = (doc.getLong("planFactPlanVolume") ?: 1000L).toInt(),
+                                planFactPlanCost = doc.getDouble("planFactPlanCost") ?: 60.0,
+                                planFactPlanDays = (doc.getLong("planFactPlanDays") ?: 30L).toInt(),
+                                planFactActualPrice = doc.getDouble("planFactActualPrice") ?: 96.0,
+                                planFactActualVolume = (doc.getLong("planFactActualVolume") ?: 1050L).toInt(),
+                                planFactActualCost = doc.getDouble("planFactActualCost") ?: 63.0,
+                                planFactActualDays = (doc.getLong("planFactActualDays") ?: 48L).toInt(),
+                                planFactActualPenalties = doc.getDouble("planFactActualPenalties") ?: 0.0,
+                                planFactCapitalRate = doc.getDouble("planFactCapitalRate") ?: 18.0
                             )
                         } catch (e: Exception) {
                             null
@@ -173,7 +184,18 @@ class DealRepository(
                     "roiPct" to deal.roiPct,
                     "paybackMonths" to deal.paybackMonths,
                     "updatedAt" to deal.updatedAt,
-                    "createdBy" to uid
+                    "createdBy" to uid,
+                    "hasPlanFactData" to deal.hasPlanFactData,
+                    "planFactPlanPrice" to deal.planFactPlanPrice,
+                    "planFactPlanVolume" to deal.planFactPlanVolume,
+                    "planFactPlanCost" to deal.planFactPlanCost,
+                    "planFactPlanDays" to deal.planFactPlanDays,
+                    "planFactActualPrice" to deal.planFactActualPrice,
+                    "planFactActualVolume" to deal.planFactActualVolume,
+                    "planFactActualCost" to deal.planFactActualCost,
+                    "planFactActualDays" to deal.planFactActualDays,
+                    "planFactActualPenalties" to deal.planFactActualPenalties,
+                    "planFactCapitalRate" to deal.planFactCapitalRate
                 )
                 firestore.collection("users").document(uid).collection("deals")
                     .document(deal.id)

@@ -8,6 +8,7 @@ import com.example.data.model.DealScoringResult
 import com.example.data.model.PnlModel
 import com.example.data.model.SavedDeal
 import com.example.domain.calculator.CashGapResult
+import com.example.domain.calculator.PlanFactResult
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStreamWriter
@@ -31,7 +32,8 @@ object CsvExportService {
         scoring: DealScoringResult?,
         cashGap: CashGapResult?,
         pnl: PnlModel?,
-        amortization: List<AmortizationRow>
+        amortization: List<AmortizationRow>,
+        planFact: PlanFactResult? = null
     ): Result<File> {
         return runCatching {
             val reportsDir = File(context.cacheDir, "reports")
@@ -40,7 +42,7 @@ object CsvExportService {
             val sanitizedTitle = deal.title.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(30)
             val csvFile = File(reportsDir, "NotaBigDeal_${sanitizedTitle}_${System.currentTimeMillis()}.csv")
 
-            val csvContent = buildActiveDealCsv(deal, scoring, cashGap, pnl, amortization)
+            val csvContent = buildActiveDealCsv(deal, scoring, cashGap, pnl, amortization, planFact)
             FileOutputStream(csvFile).use { fos ->
                 // Write UTF-8 BOM for Microsoft Excel compatibility
                 fos.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
@@ -59,7 +61,8 @@ object CsvExportService {
         scoring: DealScoringResult?,
         cashGap: CashGapResult?,
         pnl: PnlModel?,
-        amortization: List<AmortizationRow>
+        amortization: List<AmortizationRow>,
+        planFact: PlanFactResult? = null
     ): String {
         val sb = java.lang.StringBuilder()
         val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
@@ -137,6 +140,28 @@ object CsvExportService {
                 val typeLabel = if (item.isGracePeriod) "Grace Period" else "Standard Installment"
                 sb.append("${item.period},${item.payment},${item.principal},${item.interest},${item.remainingBalance},$typeLabel\n")
             }
+            sb.append("\n")
+        }
+
+        // Section 5: Plan-Fact Variance Bridge (5-Factor Profit Decomposition)
+        if (planFact != null) {
+            sb.append("--- 5. PLAN-FACT VARIANCE BRIDGE ---\n")
+            sb.append("Indicator,Plan,Actual,Delta / Impact,Unit,Note\n")
+            sb.append("Unit Selling Price,${planFact.planPrice},${planFact.actualPrice},${planFact.actualPrice - planFact.planPrice},$cur,Per unit\n")
+            sb.append("Sales Volume,${planFact.planVolume},${planFact.actualVolume},${planFact.actualVolume - planFact.planVolume},Units,Shipped quantity\n")
+            sb.append("Unit COGS,${planFact.planCost},${planFact.actualCost},${planFact.planCost - planFact.actualCost},$cur,Cost variance per unit\n")
+            sb.append("Payment Deferral (DSO),${planFact.planDays},${planFact.actualDays},${planFact.actualDays - planFact.planDays},Days,At ${planFact.capitalRatePct}% capital rate\n")
+            sb.append("Revenue,${planFact.planRevenue},${planFact.actualRevenue},${planFact.revenueDelta},$cur,${planFact.revenueDeltaPct}%\n")
+            sb.append("Gross Profit,${planFact.planGrossProfit},${planFact.actualGrossProfit},${planFact.grossProfitDelta},$cur,Gross Margin: ${planFact.planMarginPct}% -> ${planFact.actualMarginPct}%\n")
+            sb.append("Deferral Financing Cost,${planFact.planDeferralCost},${planFact.actualDeferralCost},${planFact.dsoDeferralEffectProfit},$cur,Working capital drag\n")
+            sb.append("Penalties & Claims,0.0,${planFact.actualPenalties},${planFact.penaltiesEffectProfit},$cur,Contractual deductions\n")
+            sb.append("Net Profit,${planFact.planNetProfit},${planFact.actualNetProfit},${planFact.netProfitDelta},$cur,${planFact.netProfitDeltaPct}%\n")
+            sb.append("1. Volume Effect,-,-,${planFact.volumeEffectProfit},$cur,ΔQ × Plan Unit Margin\n")
+            sb.append("2. Price Effect,-,-,${planFact.priceEffectProfit},$cur,ΔP × Actual Volume\n")
+            sb.append("3. Cost / COGS Effect,-,-,${planFact.costEffectProfit},$cur,ΔCOGS × Actual Volume\n")
+            sb.append("4. DSO Deferral Effect,-,-,${planFact.dsoDeferralEffectProfit},$cur,Excess deferral financing\n")
+            sb.append("5. Penalties Effect,-,-,${planFact.penaltiesEffectProfit},$cur,Commercial claims & write-offs\n")
+            sb.append("Variance Bridge Status,${planFact.status.name},-,${csvCell(planFact.verdictEn)},-,Executive summary\n")
         }
         return sb.toString()
     }

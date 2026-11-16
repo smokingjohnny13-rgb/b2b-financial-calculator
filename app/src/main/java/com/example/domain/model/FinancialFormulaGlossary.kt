@@ -197,6 +197,20 @@ object FinancialFormulaGlossary {
             kamTipRu = "Если сеть продавливает отсрочку 90 дней, отдайте инвойс на факторинг и заложите к базовой цене компенсационную наценку (Price Uplift) в размере затрат на факторинг.",
             warningEn = "Ensure the factor's recourse rules and fee structure don't exceed your gross margin threshold.",
             warningRu = "Проверяйте условия регресса фактора и годовую ставку APR: при отсрочке 90+ дней факторинг может съесть до трети чистой маржи контракта."
+        ),
+        FormulaItem(
+            id = "plan_fact_variance",
+            category = FormulaCategory.RISK_GOVERNANCE,
+            titleEn = "Plan-Fact Variance Bridge (5-Factor)",
+            titleRu = "План-Факт анализ (Факторный мост прибыли)",
+            formulaLatexEn = "ΔNet Profit = Volume + Price + Cost + DSO - Penalties\nVolume = (Q_act - Q_plan) × (P_plan - C_plan)\nPrice = (P_act - P_plan) × Q_act\nCost = (C_plan - C_act) × Q_act\nDSO = -(Deferral_act - Deferral_plan)",
+            formulaLatexRu = "ΔЧистая прибыль = Объем + Цена + Себест. + DSO - Штрафы\nОбъем = (Q_факт - Q_план) × (Ц_план - С_план)\nЦена = (Ц_факт - Ц_план) × Q_факт\nСебест. = (С_план - С_факт) × Q_факт\nDSO = -(Отсрочка_факт - Отсрочка_план)",
+            definitionEn = "Exact factorial decomposition explaining why actual contract net profit diverged from the approved underwriting plan across volume, unit price, unit COGS, receivables delay (DSO), and contractual penalties.",
+            definitionRu = "Точная факторная декомпозиция отклонения фактической чистой прибыли контракта от утвержденного плана по 5 драйверам: объем, цена, себестоимость (COGS), задержка оплаты (DSO) и коммерческие штрафы.",
+            kamTipEn = "In post-deal QBRs, never present only total profit delta. Isolate whether erosion came from sales discounting (Price), supplier inflation (Cost), or client payment delays (DSO) so accountability stays crystal clear.",
+            kamTipRu = "На разборе сделки (QBR) не показывайте только итоговую дельту прибыли. Разделите вклад скидки (Цена), роста закупки (Себест.) и просрочки дебиторки (DSO), чтобы защитить ответственность коммерческой команды.",
+            warningEn = "Notice that all 5 factors sum identically to ΔNet Profit—discrepancies indicate uncaptured off-invoice rebates or hidden penalties.",
+            warningRu = "Сумма всех 5 факторов математически равна ΔЧистой прибыли. Если есть скрытые списания, обязательно вносите их в строку штрафов/ретро-бонусов."
         )
     )
 

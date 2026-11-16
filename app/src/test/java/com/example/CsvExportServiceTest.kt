@@ -6,8 +6,11 @@ import com.example.data.model.PnlModel
 import com.example.data.model.SavedDeal
 import com.example.domain.calculator.CashGapEngine
 import com.example.domain.calculator.DealScoringEngine
+import com.example.domain.calculator.PlanFactVarianceEngine
+import com.example.domain.model.FinancialFormulaGlossary
 import com.example.service.CsvExportService
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -182,5 +185,74 @@ class CsvExportServiceTest {
         // Deal rows
         assertTrue(csv.contains("DEAL-001,Hardware Supply Contract,TechCorp Inc.,USD,100000.00,10.00,24,MONTHLY,4614.49,25.0,33.3,40.0,8.0,300000.00,5.0"))
         assertTrue(csv.contains("DEAL-002,\"Annual Maintenance, SLA & Support\",Global Logistics LLC,EUR,150000.00,8.50,12,QUARTERLY,39500.00,45.0,81.8,75.0,5.0,450000.00,6.2"))
+    }
+
+    @Test
+    fun `test buildActiveDealCsv includes Plan-Fact Variance Bridge Section 5`() {
+        val deal = SavedDeal(
+            id = "DEAL-PF-01",
+            title = "Enterprise QBR Deal",
+            clientName = "Nordic Metals",
+            currencyCode = "USD",
+            hasPlanFactData = true,
+            planFactPlanPrice = 100.0,
+            planFactPlanVolume = 1000,
+            planFactPlanCost = 60.0,
+            planFactPlanDays = 30,
+            planFactActualPrice = 96.0,
+            planFactActualVolume = 1050,
+            planFactActualCost = 63.0,
+            planFactActualDays = 48,
+            planFactActualPenalties = 500.0,
+            planFactCapitalRate = 18.0
+        )
+
+        val planFact = PlanFactVarianceEngine.calculate(
+            planPrice = deal.planFactPlanPrice,
+            planVolume = deal.planFactPlanVolume,
+            planCost = deal.planFactPlanCost,
+            planDays = deal.planFactPlanDays,
+            actualPrice = deal.planFactActualPrice,
+            actualVolume = deal.planFactActualVolume,
+            actualCost = deal.planFactActualCost,
+            actualDays = deal.planFactActualDays,
+            actualPenalties = deal.planFactActualPenalties,
+            capitalRatePct = deal.planFactCapitalRate
+        )
+
+        val csv = CsvExportService.buildActiveDealCsv(
+            deal = deal,
+            scoring = null,
+            cashGap = null,
+            pnl = null,
+            amortization = emptyList(),
+            planFact = planFact
+        )
+
+        assertTrue(csv.contains("--- 5. PLAN-FACT VARIANCE BRIDGE ---"))
+        assertTrue(csv.contains("1. Volume Effect,-,-,${planFact.volumeEffectProfit},USD"))
+        assertTrue(csv.contains("2. Price Effect,-,-,${planFact.priceEffectProfit},USD"))
+        assertTrue(csv.contains("3. Cost / COGS Effect,-,-,${planFact.costEffectProfit},USD"))
+        assertTrue(csv.contains("4. DSO Deferral Effect,-,-,${planFact.dsoDeferralEffectProfit},USD"))
+        assertTrue(csv.contains("5. Penalties Effect,-,-,${planFact.penaltiesEffectProfit},USD"))
+        assertTrue(csv.contains("Variance Bridge Status,${planFact.status.name}"))
+
+        // Verify 5-factor bridge identity
+        val factorSum = planFact.volumeEffectProfit +
+            planFact.priceEffectProfit +
+            planFact.costEffectProfit +
+            planFact.dsoDeferralEffectProfit +
+            planFact.penaltiesEffectProfit
+        assertEquals(planFact.netProfitDelta, factorSum, 0.05)
+    }
+
+    @Test
+    fun `test glossary contains plan_fact_variance formula in EN and RU`() {
+        val item = FinancialFormulaGlossary.findById("plan_fact_variance")
+        assertNotNull(item)
+        assertTrue(item!!.titleEn.contains("Plan-Fact"))
+        assertTrue(item.titleRu.contains("План-Факт"))
+        assertTrue(item.formulaLatexEn.contains("Volume"))
+        assertTrue(item.formulaLatexRu.contains("Штрафы"))
     }
 }

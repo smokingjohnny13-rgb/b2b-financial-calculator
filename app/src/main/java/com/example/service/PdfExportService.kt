@@ -28,6 +28,8 @@ import com.example.domain.calculator.TornadoAnalysisResult
 import com.example.domain.calculator.PriceWaterfallResult
 import com.example.domain.calculator.LtvCalculator
 import com.example.domain.calculator.CashGapResult
+import com.example.domain.calculator.PlanFactHealthStatus
+import com.example.domain.calculator.PlanFactResult
 import java.io.File
 import java.io.FileOutputStream
 import java.text.NumberFormat
@@ -50,7 +52,8 @@ object PdfExportService {
         giveGet: GiveGetResult? = null,
         tornado: TornadoAnalysisResult? = null,
         waterfall: PriceWaterfallResult? = null,
-        cashGap: CashGapResult? = null
+        cashGap: CashGapResult? = null,
+        planFact: PlanFactResult? = null
     ): Result<Uri> {
         return runCatching {
             val pdfDocument = PdfDocument()
@@ -101,6 +104,7 @@ object PdfExportService {
                 ltv = ltv,
                 landedCost = landedCost,
                 cashGap = cashGap,
+                planFact = planFact,
                 currencyFmt = currencyFmt,
                 percentFmt = percentFmt,
                 pageWidth = pageWidth,
@@ -632,6 +636,7 @@ object PdfExportService {
         ltv: LtvMetrics,
         landedCost: LandedCostResult?,
         cashGap: CashGapResult?,
+        planFact: PlanFactResult?,
         currencyFmt: NumberFormat,
         percentFmt: NumberFormat,
         pageWidth: Int,
@@ -834,7 +839,61 @@ object PdfExportService {
         paint.color = Color.rgb(51, 65, 85)
         canvas.drawText(lcText, leftX, currentY + 8f, paint)
 
-        // --- SECTION 9: EXECUTIVE SIGNATURE & APPROVAL BLOCK ---
+        // --- SECTION 9: PLAN-FACT VARIANCE BRIDGE (5-FACTOR DECOMPOSITION) ---
+        if (planFact != null) {
+            currentY += 24f
+            paint.color = Color.rgb(15, 23, 42)
+            paint.textSize = 10f
+            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            canvas.drawText("9. PLAN-FACT VARIANCE BRIDGE (NET PROFIT DECOMPOSITION)", leftX, currentY, paint)
+
+            currentY += 6f
+            paint.color = Color.rgb(226, 232, 240)
+            canvas.drawRect(leftX, currentY, rightX, currentY + 1f, paint)
+
+            currentY += 8f
+            val (badgeBg, badgeFg) = when (planFact.status) {
+                PlanFactHealthStatus.OUTPERFORMING -> Color.rgb(220, 252, 231) to Color.rgb(21, 128, 61)
+                PlanFactHealthStatus.ACCEPTABLE -> Color.rgb(254, 243, 199) to Color.rgb(180, 83, 9)
+                PlanFactHealthStatus.EROSION -> Color.rgb(254, 226, 226) to Color.rgb(185, 28, 28)
+            }
+            paint.color = badgeBg
+            canvas.drawRoundRect(RectF(leftX, currentY, rightX, currentY + 16f), 4f, 4f, paint)
+            paint.color = badgeFg
+            paint.textSize = 7.5f
+            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            canvas.drawText("VERDICT: ${planFact.verdictEn}", leftX + 8f, currentY + 11f, paint)
+
+            currentY += 20f
+            val fmtSigned = { v: Double -> "${if (v >= 0.0) "+" else ""}${currencyFmt.format(v)}" }
+            val bridgeRows = listOf(
+                Pair("Plan vs Actual Revenue", "${currencyFmt.format(planFact.planRevenue)} -> ${currencyFmt.format(planFact.actualRevenue)}") to Pair("1. Volume Effect (ΔQ × Plan Margin)", fmtSigned(planFact.volumeEffectProfit)),
+                Pair("Gross Margin (Plan -> Fact)", "${percentFmt.format(planFact.planMarginPct)}% -> ${percentFmt.format(planFact.actualMarginPct)}%") to Pair("2. Price Effect (ΔP × Actual Vol)", fmtSigned(planFact.priceEffectProfit)),
+                Pair("Net Profit (Plan -> Fact)", "${currencyFmt.format(planFact.planNetProfit)} -> ${currencyFmt.format(planFact.actualNetProfit)}") to Pair("3. Cost / COGS Effect (ΔCost)", fmtSigned(planFact.costEffectProfit)),
+                Pair("Total Net Profit Variance (Δ)", fmtSigned(planFact.netProfitDelta)) to Pair("4. DSO Drag / 5. Penalties", "${fmtSigned(planFact.dsoDeferralEffectProfit)} / ${fmtSigned(planFact.penaltiesEffectProfit)}")
+            )
+
+            for ((col1, col2) in bridgeRows) {
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                paint.color = Color.rgb(71, 85, 105)
+                paint.textSize = 7.5f
+                canvas.drawText(col1.first, leftX, currentY + 9f, paint)
+                paint.color = Color.rgb(15, 23, 42)
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                canvas.drawText(col1.second, leftX + 140f, currentY + 9f, paint)
+
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                paint.color = Color.rgb(71, 85, 105)
+                canvas.drawText(col2.first, leftX + 280f, currentY + 9f, paint)
+                paint.color = Color.rgb(15, 23, 42)
+                paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                canvas.drawText(col2.second, leftX + 435f, currentY + 9f, paint)
+                currentY += 12f
+            }
+            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        }
+
+        // --- EXECUTIVE SIGNATURE & APPROVAL BLOCK ---
         currentY = 725f
         paint.color = Color.rgb(203, 213, 225)
         canvas.drawRect(leftX, currentY, rightX, currentY + 1f, paint)

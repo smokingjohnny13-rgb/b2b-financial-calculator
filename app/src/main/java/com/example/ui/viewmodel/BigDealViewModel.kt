@@ -980,6 +980,23 @@ class BigDealViewModel(
         }
     }
 
+    private fun formatCleanNum(value: Double): String =
+        if (value % 1.0 == 0.0) value.toInt().toString() else String.format(Locale.US, "%.2f", value)
+
+    private fun attachPlanFact(deal: SavedDeal): SavedDeal = deal.copy(
+        hasPlanFactData = true,
+        planFactPlanPrice = planFactPlanPrice.value.toCleanDouble() ?: 100.0,
+        planFactPlanVolume = planFactPlanVolume.value.toCleanInt() ?: 1000,
+        planFactPlanCost = planFactPlanCost.value.toCleanDouble() ?: 60.0,
+        planFactPlanDays = planFactPlanDays.value.toCleanInt() ?: 30,
+        planFactActualPrice = planFactActualPrice.value.toCleanDouble() ?: 96.0,
+        planFactActualVolume = planFactActualVolume.value.toCleanInt() ?: 1050,
+        planFactActualCost = planFactActualCost.value.toCleanDouble() ?: 63.0,
+        planFactActualDays = planFactActualDays.value.toCleanInt() ?: 48,
+        planFactActualPenalties = planFactActualPenalties.value.toCleanDouble() ?: 0.0,
+        planFactCapitalRate = planFactCapitalRate.value.toCleanDouble() ?: 18.0
+    )
+
     // --- Deal Saving & PDF Generation ---
     fun saveCurrentDeal() {
         viewModelScope.launch {
@@ -987,22 +1004,24 @@ class BigDealViewModel(
             val r = annualInterestRate.value.toCleanDouble() ?: 6.5
             val tenure = tenureMonths.value.toCleanInt() ?: 24
 
-            val deal = SavedDeal(
-                title = dealTitle.value,
-                clientName = clientName.value,
-                currencyCode = selectedCurrency.value,
-                dealValue = p,
-                interestRatePct = r,
-                tenureMonths = tenure,
-                frequency = paymentFrequency.value,
-                periodicPayment = _amortization.value.periodicPayment,
-                ltv = _ltvMetrics.value.ltv,
-                ltvCacRatio = _ltvMetrics.value.ltvCacRatio,
-                marginPct = _marginState.value.marginPct,
-                markupPct = _marginState.value.markupPct,
-                roiPct = _pnlModel.value.roiPct,
-                paybackMonths = _pnlModel.value.paybackMonths,
-                updatedAt = System.currentTimeMillis()
+            val deal = attachPlanFact(
+                SavedDeal(
+                    title = dealTitle.value,
+                    clientName = clientName.value,
+                    currencyCode = selectedCurrency.value,
+                    dealValue = p,
+                    interestRatePct = r,
+                    tenureMonths = tenure,
+                    frequency = paymentFrequency.value,
+                    periodicPayment = _amortization.value.periodicPayment,
+                    ltv = _ltvMetrics.value.ltv,
+                    ltvCacRatio = _ltvMetrics.value.ltvCacRatio,
+                    marginPct = _marginState.value.marginPct,
+                    markupPct = _marginState.value.markupPct,
+                    roiPct = _pnlModel.value.roiPct,
+                    paybackMonths = _pnlModel.value.paybackMonths,
+                    updatedAt = System.currentTimeMillis()
+                )
             )
             dealRepository.saveDeal(deal)
             _userMessage.emit(str("Deal proposal saved & synced: ${deal.title}", "Сценарий сделки сохранен и синхронизирован: ${deal.title}", appLanguage.value))
@@ -1029,9 +1048,33 @@ class BigDealViewModel(
         val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
         val unitPrice = if (vol > 0 && deal.dealValue > 0) deal.dealValue / vol else deal.dealValue
         val unitCost = unitPrice * (1.0 - deal.marginPct / 100.0)
-        dealApprovalSellingPrice.value = if (unitPrice % 1.0 == 0.0) unitPrice.toInt().toString() else String.format(Locale.US, "%.2f", unitPrice)
-        dealApprovalCostPrice.value = if (unitCost % 1.0 == 0.0) unitCost.toInt().toString() else String.format(Locale.US, "%.2f", unitCost)
+        dealApprovalSellingPrice.value = formatCleanNum(unitPrice)
+        dealApprovalCostPrice.value = formatCleanNum(unitCost)
         recalculateDealScoring()
+
+        if (deal.hasPlanFactData) {
+            planFactPlanPrice.value = formatCleanNum(deal.planFactPlanPrice)
+            planFactPlanVolume.value = deal.planFactPlanVolume.toString()
+            planFactPlanCost.value = formatCleanNum(deal.planFactPlanCost)
+            planFactPlanDays.value = deal.planFactPlanDays.toString()
+            planFactActualPrice.value = formatCleanNum(deal.planFactActualPrice)
+            planFactActualVolume.value = deal.planFactActualVolume.toString()
+            planFactActualCost.value = formatCleanNum(deal.planFactActualCost)
+            planFactActualDays.value = deal.planFactActualDays.toString()
+            planFactActualPenalties.value = formatCleanNum(deal.planFactActualPenalties)
+            planFactCapitalRate.value = formatCleanNum(deal.planFactCapitalRate)
+        } else {
+            val priceStr = formatCleanNum(unitPrice)
+            val costStr = formatCleanNum(unitCost)
+            planFactPlanPrice.value = priceStr
+            planFactPlanVolume.value = vol.toString()
+            planFactPlanCost.value = costStr
+            planFactActualPrice.value = priceStr
+            planFactActualVolume.value = vol.toString()
+            planFactActualCost.value = costStr
+            planFactActualPenalties.value = "0"
+        }
+        updatePlanFactCalculations()
 
         viewModelScope.launch {
             _userMessage.emit(str("Loaded scenario: ${deal.title}", "Загружен сценарий: ${deal.title}", appLanguage.value))
@@ -1079,7 +1122,8 @@ class BigDealViewModel(
                 giveGet = giveGetResult.value,
                 tornado = tornadoResult.value,
                 waterfall = waterfallResult.value,
-                cashGap = _cashGapResult.value
+                cashGap = _cashGapResult.value,
+                planFact = _planFactResult.value
             )
 
             result.onSuccess {
@@ -1128,7 +1172,8 @@ class BigDealViewModel(
                 scoring = _dealScoringResult.value,
                 cashGap = _cashGapResult.value,
                 pnl = _pnlModel.value,
-                amortization = _amortization.value.schedule
+                amortization = _amortization.value.schedule,
+                planFact = _planFactResult.value
             )
 
             result.onSuccess {
@@ -2017,17 +2062,19 @@ class BigDealViewModel(
         dealApprovalStatus.value = DealApprovalStatus.APPROVED
         val currentScoring = _dealScoringResult.value
         val client = selectedClient.value
-        val newDeal = SavedDeal(
-            title = dealTitle.value,
-            clientName = client?.name ?: clientName.value,
-            currencyCode = activeCurrency.value.code,
-            dealValue = currentScoring.totalRevenue,
-            interestRatePct = currentScoring.costOfDeferralPct,
-            tenureMonths = (currentScoring.paymentTermsDays / 30).coerceAtLeast(1),
-            marginPct = currentScoring.netNetMarginPct,
-            markupPct = if (currentScoring.costPrice > 0) ((currentScoring.netNetPrice - currentScoring.costPrice) / currentScoring.costPrice) * 100.0 else 0.0,
-            roiPct = currentScoring.netNetMarginPct * 2.2,
-            paybackMonths = (currentScoring.paymentTermsDays.toDouble() / 30.0)
+        val newDeal = attachPlanFact(
+            SavedDeal(
+                title = dealTitle.value,
+                clientName = client?.name ?: clientName.value,
+                currencyCode = activeCurrency.value.code,
+                dealValue = currentScoring.totalRevenue,
+                interestRatePct = currentScoring.costOfDeferralPct,
+                tenureMonths = (currentScoring.paymentTermsDays / 30).coerceAtLeast(1),
+                marginPct = currentScoring.netNetMarginPct,
+                markupPct = if (currentScoring.costPrice > 0) ((currentScoring.netNetPrice - currentScoring.costPrice) / currentScoring.costPrice) * 100.0 else 0.0,
+                roiPct = currentScoring.netNetMarginPct * 2.2,
+                paybackMonths = (currentScoring.paymentTermsDays.toDouble() / 30.0)
+            )
         )
         viewModelScope.launch {
             dealRepository.saveDeal(newDeal)

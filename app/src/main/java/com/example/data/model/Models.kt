@@ -135,5 +135,16 @@ data class SavedDeal(
     val roiPct: Double = 145.0,
     val paybackMonths: Double = 8.5,
     val updatedAt: Long = System.currentTimeMillis(),
-    val createdBy: String = "local_user"
+    val createdBy: String = "local_user",
+    val hasPlanFactData: Boolean = false,
+    val planFactPlanPrice: Double = 100.0,
+    val planFactPlanVolume: Int = 1000,
+    val planFactPlanCost: Double = 60.0,
+    val planFactPlanDays: Int = 30,
+    val planFactActualPrice: Double = 96.0,
+    val planFactActualVolume: Int = 1050,
+    val planFactActualCost: Double = 63.0,
+    val planFactActualDays: Int = 48,
+    val planFactActualPenalties: Double = 0.0,
+    val planFactCapitalRate: Double = 18.0
 )

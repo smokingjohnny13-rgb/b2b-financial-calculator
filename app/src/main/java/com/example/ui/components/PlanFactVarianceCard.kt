@@ -243,7 +243,8 @@ fun PlanFactVarianceCard(
                     label = if (isRu) "План цена" else "Plan Price",
                     prefix = sym,
                     modifier = Modifier.weight(1f),
-                    testTag = "input_plan_price"
+                    testTag = "input_plan_price",
+                    formulaId = "plan_fact_variance"
                 )
                 FinancialInputField(
                     value = actPrice,
