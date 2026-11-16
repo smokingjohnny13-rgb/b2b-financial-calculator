@@ -291,4 +291,78 @@ class FinancialArchitectureOptimizationsTest {
         assertTrue("Net-Net Margin must remain healthy", scoring.netNetMarginPct > 20.0)
         assertTrue("Deal revenue equals volume * net price", scoring.totalRevenue > 0.0)
     }
+
+    @Test
+    fun `test give get discount post concession margin and negative margin guard`() {
+        // $100 selling price, $60 COGS, 0% prior discount/bonus -> 40% margin.
+        // Giving +10% discount => $90 Net-Net price, $30 profit => exact margin 30/90 = 33.33%
+        val discountRes = com.example.domain.calculator.GiveGetEngine.calculate(
+            sellingPrice = 100.0,
+            cogs = 60.0,
+            baseVolume = 1000,
+            currentDiscountPct = 0.0,
+            currentBonusPct = 0.0,
+            concessionType = com.example.domain.calculator.GiveConcessionType.PRICE_DISCOUNT,
+            concessionValue = 10.0
+        )
+        assertEquals(10000.0, discountRes.concessionFinancialCost, 0.01)
+        assertEquals(33.33, discountRes.postConcessionMarginPct, 0.05)
+        assertEquals(6.67, discountRes.marginErosionPp, 0.05)
+
+        // Loss-making deal ($50 price < $60 COGS) must not fabricate positive contribution or volume lift
+        val lossRes = com.example.domain.calculator.GiveGetEngine.calculate(
+            sellingPrice = 50.0,
+            cogs = 60.0,
+            baseVolume = 1000,
+            currentDiscountPct = 0.0,
+            currentBonusPct = 0.0,
+            concessionType = com.example.domain.calculator.GiveConcessionType.LISTING_FEE,
+            concessionValue = 1000.0
+        )
+        assertEquals(-10.0, lossRes.unitContributionMargin, 0.01)
+        assertEquals(0, lossRes.requiredVolumeLiftUnits)
+    }
+
+    @Test
+    fun `test floating rate prepayment calculates exact interestSaved`() {
+        val accelerated = AmortizationEngine.calculate(
+            principal = 120000.0,
+            annualInterestRatePct = 18.0,
+            tenureMonths = 24,
+            frequency = PaymentFrequency.MONTHLY,
+            isFloatingRate = true,
+            floatingBenchmarkRatePct = 16.0,
+            floatingSpreadPct = 2.0,
+            floatingResetIntervalMonths = 6,
+            floatingRateTrendAnnualPct = 0.0,
+            customPeriodicPayment = 8000.0
+        )
+        assertTrue("Floating prepayment should accelerate payoff", accelerated.isAccelerated)
+        assertTrue("Floating prepayment should save periods", accelerated.periodsSaved > 0)
+        assertTrue("Floating prepayment should report positive interestSaved", accelerated.interestSaved > 1000.0)
+        assertEquals(0.0, accelerated.schedule.last().remainingBalance, 0.05)
+    }
+
+    @Test
+    fun `test landed cost compound coefficient matches itemized breakdown`() {
+        val coeff = com.example.domain.calculator.LandedCostCalculator.buildCoefficientFromComponents(
+            logisticsPct = 15.0,
+            dutyPct = 10.0,
+            vatPct = 20.0,
+            brokerFeesPct = 2.5
+        )
+        // (1.15 * 1.10 * 1.20) + 0.025 = 1.518 + 0.025 = 1.5430
+        assertEquals(1.5430, coeff, 0.0001)
+
+        val direct = com.example.domain.calculator.LandedCostCalculator.calculateDirect(
+            fobPrice = 100.0,
+            coefficient = coeff,
+            logisticsPct = 15.0,
+            dutyPct = 10.0,
+            vatPct = 20.0,
+            brokerFeesPct = 2.5
+        )
+        val componentsSum = direct.fobPrice + direct.freightAmount + direct.customsDutyAmount + direct.importVatAmount + direct.brokerFeesAmount
+        assertEquals(direct.landedCost, componentsSum, 0.05)
+    }
 }

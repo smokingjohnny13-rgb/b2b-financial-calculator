@@ -793,7 +793,7 @@ object PdfExportService {
         currentY += 12f
         val ltvRows = listOf(
             Pair("Average Revenue Per Account (ARPU)", currencyFmt.format(ltv.arpu)) to Pair("Customer Acquisition Cost (CAC)", currencyFmt.format(ltv.cac)),
-            Pair("Annualized Account Churn Rate", "${percentFmt.format(ltv.churnRatePct)}%") to Pair("LTV : CAC Health Benchmark", "${percentFmt.format(ltv.ltvCacRatio)}x (${LtvCalculator.getLtvCacHealthLabel(ltv.ltvCacRatio).first})"),
+            Pair("Monthly Account Churn Rate", "${percentFmt.format(ltv.churnRatePct)}%") to Pair("LTV : CAC Health Benchmark", "${percentFmt.format(ltv.ltvCacRatio)}x (${LtvCalculator.getLtvCacHealthLabel(ltv.ltvCacRatio).first})"),
             Pair("Customer Lifetime Value (LTV)", currencyFmt.format(ltv.ltv)) to Pair("CAC Recovery Horizon", "${percentFmt.format(ltv.monthsToRecoverCac)} Months")
         )
 

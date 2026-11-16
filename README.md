@@ -118,7 +118,7 @@ Structures capital equipment leasing, vendor financing, and long-term installmen
 - **Custom Installment & Early Repayment Modeling**:
   - Direct input of custom monthly payment amounts both during the grace moratorium and standard repayment phase;
   - Excess payment directly amortizes principal during grace, calculating exact interest saved (`interestSaved`) and shortened loan tenure (`periodsSaved`);
-  - Actuarial true Effective APR (IRR) calculation via Newton-Raphson method;
+  - Actuarial true Effective APR (IRR) calculation via Bisection method;
 - **Floating Rate Loan Modeling (Benchmark + Spread)**:
   - Models floating benchmark index (SOFR, RUONIA, Central Bank Key Rate) plus bank spread;
   - Configurable rate reset intervals (quarterly, semi-annually, annually) with annual rate trend shifts;

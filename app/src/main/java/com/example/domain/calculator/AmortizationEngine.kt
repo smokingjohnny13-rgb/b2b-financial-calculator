@@ -161,6 +161,34 @@ object AmortizationEngine {
             val totalPayments = netPrincipal + accumulatedInterest
             val actualPeriods = schedule.size
             val periodsSaved = if (hasPrepayment) max(0, totalPeriods - actualPeriods) else 0
+            var baselineInterest = accumulatedInterest
+            if (hasPrepayment) {
+                var baseRate = max(0.0, floatingBenchmarkRatePct + floatingSpreadPct)
+                var baseBal = netPrincipal
+                var baseIntAcc = 0.0
+                for (p in 1..totalPeriods) {
+                    if (p > 1 && (p - 1) % resetIntervalPeriods == 0) {
+                        baseRate = max(0.0, baseRate + trendPerReset)
+                    }
+                    val pRate = (baseRate / 100.0) / frequency.periodsPerYear
+                    val rem = totalPeriods - p + 1
+                    val schedPmt = if (scheme == AmortizationScheme.DIFFERENTIATED) {
+                        (baseBal / rem) + (if (pRate > 0.0) baseBal * pRate else 0.0)
+                    } else if (pRate <= 0.000001) {
+                        baseBal / rem
+                    } else {
+                        val factor = (1.0 + pRate).pow(rem.toDouble())
+                        baseBal * (pRate * factor) / (factor - 1.0)
+                    }
+                    val intP = if (pRate > 0.0) baseBal * pRate else 0.0
+                    var princP = schedPmt - intP
+                    if (p == totalPeriods || princP > baseBal) princP = baseBal
+                    baseBal = max(0.0, baseBal - princP)
+                    baseIntAcc += intP
+                }
+                baselineInterest = baseIntAcc
+            }
+            val interestSaved = if (hasPrepayment) roundTwoDecimals(max(0.0, baselineInterest - accumulatedInterest)) else 0.0
             val (trueApr, trueEar) = calculateIrr(netPrincipal, schedule.map { it.payment }, frequency.periodsPerYear)
             val avgRate = if (actualPeriods > 0) sumRates / actualPeriods else currentAnnualRate
 
@@ -183,10 +211,10 @@ object AmortizationEngine {
                 floatingSpreadPct = floatingSpreadPct,
                 effectiveAverageRatePct = roundTwoDecimals(avgRate),
                 customPayment = customPeriodicPayment,
-                isAccelerated = periodsSaved > 0,
+                isAccelerated = hasPrepayment && (periodsSaved > 0 || interestSaved > 0.5),
                 acceleratedPeriods = actualPeriods,
                 periodsSaved = periodsSaved,
-                interestSaved = 0.0,
+                interestSaved = interestSaved,
                 scheme = scheme,
                 firstPeriodicPayment = roundTwoDecimals(firstPayment),
                 lastPeriodicPayment = roundTwoDecimals(lastPayment),

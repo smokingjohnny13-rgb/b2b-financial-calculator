@@ -75,7 +75,7 @@ object GiveGetEngine {
 
         val netNetPrice = safePrice * (1.0 - safeDisc) * (1.0 - safeBonus)
         val baseRevenue = netNetPrice * safeVolume
-        val unitContribution = max(0.50, netNetPrice - safeCogs)
+        val unitContribution = netNetPrice - safeCogs
         val baseGrossProfit = unitContribution * safeVolume
         val baseMarginPct = if (netNetPrice > 0.0) (unitContribution / netNetPrice) * 100.0 else 0.0
 
@@ -90,21 +90,22 @@ object GiveGetEngine {
             }
             GiveConcessionType.PRICE_DISCOUNT -> {
                 val extraDiscRate = safeVal.coerceIn(0.0, 50.0) / 100.0
-                val newInvoice = safePrice * (1.0 - (safeDisc + extraDiscRate))
-                val newNetNet = max(0.1, newInvoice * (1.0 - safeBonus))
+                val totalDiscRate = (safeDisc + extraDiscRate).coerceAtMost(0.99)
+                val newInvoice = safePrice * (1.0 - totalDiscRate)
+                val newNetNet = max(0.0, newInvoice * (1.0 - safeBonus))
                 concessionFinancialCost = (netNetPrice - newNetNet) * safeVolume
-                newUnitContribution = max(0.1, newNetNet - safeCogs)
+                newUnitContribution = newNetNet - safeCogs
             }
             GiveConcessionType.RETRO_BONUS -> {
                 val extraBonusRate = safeVal.coerceIn(0.0, 50.0) / 100.0
-                val newNetNet = max(0.1, netNetPrice * (1.0 - extraBonusRate))
+                val newNetNet = max(0.0, netNetPrice * (1.0 - extraBonusRate))
                 concessionFinancialCost = (netNetPrice - newNetNet) * safeVolume
-                newUnitContribution = max(0.1, newNetNet - safeCogs)
+                newUnitContribution = newNetNet - safeCogs
             }
             GiveConcessionType.FREIGHT_DELIVERY -> {
                 val freightPerUnit = safeVal
                 concessionFinancialCost = freightPerUnit * safeVolume
-                newUnitContribution = max(0.1, unitContribution - freightPerUnit)
+                newUnitContribution = unitContribution - freightPerUnit
             }
             GiveConcessionType.LISTING_FEE -> {
                 concessionFinancialCost = safeVal
@@ -112,24 +113,31 @@ object GiveGetEngine {
             }
         }
 
-        // Breakeven Volume Lift
-        val requiredVolumeLiftUnits = ceil(concessionFinancialCost / newUnitContribution).toInt()
+        // Breakeven Volume Lift (only finite if post-concession contribution per unit is positive)
+        val requiredVolumeLiftUnits = if (newUnitContribution > 0.0001) {
+            ceil(concessionFinancialCost / newUnitContribution).toInt()
+        } else 0
         val requiredVolumeLiftPct = (requiredVolumeLiftUnits.toDouble() / safeVolume.toDouble()) * 100.0
         val newTargetVolume = safeVolume + requiredVolumeLiftUnits
 
-        // Price Compensation %
+        // Price Compensation % on base price
         val reqPriceCompPct = if (baseRevenue > 0.0) (concessionFinancialCost / baseRevenue) * 100.0 else 0.0
 
-        // Bonus clawback %
-        val reqBonusCutPct = reqPriceCompPct
+        // Bonus clawback % applied to invoice price base: invoice * V = baseRevenue / (1 - safeBonus)
+        val reqBonusCutPct = reqPriceCompPct * (1.0 - safeBonus)
 
         // Payment Terms reduction equivalent
         val dailyCapitalCost = baseRevenue * (safeWacc / 365.0)
         val reqPaymentReductionDays = if (dailyCapitalCost > 0.0) ceil(concessionFinancialCost / dailyCapitalCost).toInt() else 0
 
-        // Margin Impact
+        // Margin Impact (discount & retro-bonus reduce net-net revenue as well as profit)
+        val postConcessionRevenue = when (concessionType) {
+            GiveConcessionType.PRICE_DISCOUNT, GiveConcessionType.RETRO_BONUS ->
+                max(0.0, baseRevenue - concessionFinancialCost)
+            else -> baseRevenue
+        }
         val postConcessionProfit = baseGrossProfit - concessionFinancialCost
-        val postConcessionMarginPct = if (baseRevenue > 0.0) (postConcessionProfit / baseRevenue) * 100.0 else 0.0
+        val postConcessionMarginPct = if (postConcessionRevenue > 0.0) (postConcessionProfit / postConcessionRevenue) * 100.0 else 0.0
         val marginErosionPp = baseMarginPct - postConcessionMarginPct
 
         val counterTrades = listOf(

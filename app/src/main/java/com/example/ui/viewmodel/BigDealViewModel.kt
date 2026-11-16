@@ -2062,6 +2062,10 @@ class BigDealViewModel(
         dealApprovalStatus.value = DealApprovalStatus.APPROVED
         val currentScoring = _dealScoringResult.value
         val client = selectedClient.value
+        val totalDealCost = currentScoring.costPrice * currentScoring.volumeUnits
+        val calculatedRoiPct = if (totalDealCost > 0.0) {
+            kotlin.math.round(((currentScoring.profitAfterCostOfCapital / totalDealCost) * 100.0) * 100.0) / 100.0
+        } else 0.0
         val newDeal = attachPlanFact(
             SavedDeal(
                 title = dealTitle.value,
@@ -2072,7 +2076,7 @@ class BigDealViewModel(
                 tenureMonths = (currentScoring.paymentTermsDays / 30).coerceAtLeast(1),
                 marginPct = currentScoring.netNetMarginPct,
                 markupPct = if (currentScoring.costPrice > 0) ((currentScoring.netNetPrice - currentScoring.costPrice) / currentScoring.costPrice) * 100.0 else 0.0,
-                roiPct = currentScoring.netNetMarginPct * 2.2,
+                roiPct = calculatedRoiPct,
                 paybackMonths = (currentScoring.paymentTermsDays.toDouble() / 30.0)
             )
         )
