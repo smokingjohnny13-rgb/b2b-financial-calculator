@@ -5,13 +5,13 @@ set -e
 APP_BASE_NAME=${0##*/}
 APP_HOME=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
-if command -v gradle >/dev/null 2>&1; then
-  exec gradle -p "$APP_HOME" "$@"
-fi
-
 WRAPPER_PROPS="$APP_HOME/gradle/wrapper/gradle-wrapper.properties"
+
 if [ ! -f "$WRAPPER_PROPS" ]; then
-  echo "ERROR: $WRAPPER_PROPS not found." >&2
+  if command -v gradle >/dev/null 2>&1; then
+    exec gradle -p "$APP_HOME" "$@"
+  fi
+  echo "ERROR: $WRAPPER_PROPS not found and no system gradle installed." >&2
   exit 1
 fi
 
