@@ -2,65 +2,56 @@
   "entities": {
     "Deal": {
       "title": "Deal",
-      "description": "Saved financial deal modeling scenario for BDM and KAM accounts",
+      "description": "Saved financial deal modeling and Plan-Fact scenario for B2B KAM accounts",
       "type": "object",
       "properties": {
-        "id": {
+        "id": { "type": "string", "description": "Unique deal identifier" },
+        "title": { "type": "string", "description": "Deal title or contract name" },
+        "clientName": { "type": "string", "description": "Client or counterparty name" },
+        "currencyCode": { "type": "string", "description": "Base ISO currency code" },
+        "dealValue": { "type": "number", "description": "Total contract value" },
+        "interestRatePct": { "type": "number", "description": "Annual financing rate %" },
+        "tenureMonths": { "type": "integer", "description": "Contract tenure in months" },
+        "frequency": {
           "type": "string",
-          "description": "Unique identifier of the deal"
+          "enum": ["WEEKLY", "BIWEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"],
+          "description": "Payment frequency enum name"
         },
-        "title": {
-          "type": "string",
-          "description": "Deal title or contract package name"
-        },
-        "clientName": {
-          "type": "string",
-          "description": "Target client or account name"
-        },
-        "currencyCode": {
-          "type": "string",
-          "description": "Base currency ISO code, e.g. USD, EUR, GBP"
-        },
-        "dealValue": {
-          "type": "number",
-          "description": "Total contract value / principal amount"
-        },
-        "financingTerms": {
-          "type": "string",
-          "description": "JSON serialized financing terms and payment frequency"
-        },
-        "ltvMetrics": {
-          "type": "string",
-          "description": "JSON serialized LTV, CAC, and Churn metrics"
-        },
-        "marginData": {
-          "type": "string",
-          "description": "JSON serialized margin and markup calculations"
-        },
-        "pnlMetrics": {
-          "type": "string",
-          "description": "JSON serialized PnL, EBITDA, and ROI summary"
-        },
-        "updatedAt": {
-          "type": "number",
-          "description": "Timestamp of last modification in epoch milliseconds"
-        },
-        "createdBy": {
-          "type": "string",
-          "description": "Firebase user ID of creator"
-        }
+        "periodicPayment": { "type": "number", "description": "Periodic installment amount" },
+        "ltv": { "type": "number", "description": "Customer lifetime value" },
+        "ltvCacRatio": { "type": "number", "description": "LTV to CAC ratio" },
+        "marginPct": { "type": "number", "description": "Gross or Net-Net margin %" },
+        "markupPct": { "type": "number", "description": "Markup %" },
+        "roiPct": { "type": "number", "description": "Contract ROI %" },
+        "paybackMonths": { "type": "number", "description": "Payback duration in months" },
+        "updatedAt": { "type": "integer", "description": "Last modified epoch milliseconds" },
+        "createdBy": { "type": "string", "description": "Authenticated owner Firebase UID" },
+        "hasPlanFactData": { "type": "boolean", "description": "Whether Plan-Fact variance data is attached" },
+        "planFactPlanPrice": { "type": "number" },
+        "planFactPlanVolume": { "type": "integer" },
+        "planFactPlanCost": { "type": "number" },
+        "planFactPlanDays": { "type": "integer" },
+        "planFactActualPrice": { "type": "number" },
+        "planFactActualVolume": { "type": "integer" },
+        "planFactActualCost": { "type": "number" },
+        "planFactActualDays": { "type": "integer" },
+        "planFactActualPenalties": { "type": "number" },
+        "planFactCapitalRate": { "type": "number" }
       },
-      "required": ["id", "title", "clientName", "dealValue", "currencyCode", "updatedAt", "createdBy"]
+      "required": [
+        "id", "title", "clientName", "currencyCode", "dealValue", "interestRatePct",
+        "tenureMonths", "frequency", "periodicPayment", "ltv", "ltvCacRatio",
+        "marginPct", "markupPct", "roiPct", "paybackMonths", "updatedAt", "createdBy",
+        "hasPlanFactData", "planFactPlanPrice", "planFactPlanVolume", "planFactPlanCost",
+        "planFactPlanDays", "planFactActualPrice", "planFactActualVolume", "planFactActualCost",
+        "planFactActualDays", "planFactActualPenalties", "planFactCapitalRate"
+      ]
     }
   },
   "firestore": {
     "/users/{userId}/deals/{dealId}": {
       "schema": "#/entities/Deal",
-      "description": "User private saved financial deal models and quotes"
-    },
-    "/shared_deals/{dealId}": {
-      "schema": "#/entities/Deal",
-      "description": "Shared deal models accessible to team members"
+      "description": "User private saved financial deal models and Plan-Fact scenarios"
     }
   }
 }

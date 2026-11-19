@@ -237,11 +237,19 @@ object CsvExportService {
         return sb.toString()
     }
 
+    private val formulaTriggerChars = setOf('=', '+', '-', '@', '\t', '\r')
+
     fun csvCell(value: String): String {
-        return if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains(";")) {
-            "\"" + value.replace("\"", "\"\"") + "\""
+        val trimmed = value.trimStart()
+        val sanitized = if (value.firstOrNull() in formulaTriggerChars || trimmed.firstOrNull() in formulaTriggerChars) {
+            "'$value"
         } else {
             value
+        }
+        return if (sanitized.contains(",") || sanitized.contains("\"") || sanitized.contains("\n") || sanitized.contains("\r") || sanitized.contains(";")) {
+            "\"" + sanitized.replace("\"", "\"\"") + "\""
+        } else {
+            sanitized
         }
     }
 

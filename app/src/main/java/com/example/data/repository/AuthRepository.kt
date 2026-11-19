@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import android.content.Context
 import android.util.Log
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -11,10 +12,12 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class AuthRepository(
     private val context: Context,
@@ -37,12 +40,8 @@ class AuthRepository(
 
     suspend fun signInWithGoogle(activityContext: Context): Result<FirebaseUser> {
         return try {
-            val webClientId = try {
-                context.getString(R.string.default_web_client_id)
-            } catch (e: Exception) {
-                // Fallback client ID from google-services.json if resource not generated
-                "473324426230-90cnc6tq0mc99chofqmu688i355p112e.apps.googleusercontent.com"
-            }
+            val webClientId = context.getString(R.string.default_web_client_id)
+            require(webClientId.isNotBlank()) { "Google Sign-In configuration missing: default_web_client_id" }
 
             val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(webClientId)
                 .build()
@@ -78,7 +77,15 @@ class AuthRepository(
         }
     }
 
-    fun signOut() {
-        auth.signOut()
+    suspend fun signOut() {
+        withContext(NonCancellable) {
+            try {
+                CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
+            } catch (e: Exception) {
+                Log.w("BigDealAuth", "Failed to clear credential state: ${e.message}")
+            } finally {
+                auth.signOut()
+            }
+        }
     }
 }

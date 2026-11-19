@@ -1,15 +1,104 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User deals: strictly private to the authenticated owner
-    match /users/{userId}/deals/{dealId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Default deny for all other collections
+    // Default deny for all unspecified paths
     match /{document=**} {
       allow read, write: if false;
     }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isFiniteNumber(v) {
+      return v is int || v is float;
+    }
+
+    function isValidFrequency(freq) {
+      return freq in ['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'ANNUALLY'];
+    }
+
+    function isValidDeal(data, userId, dealId) {
+      return data.keys().hasAll([
+               'id', 'title', 'clientName', 'currencyCode', 'dealValue',
+               'interestRatePct', 'tenureMonths', 'frequency', 'periodicPayment',
+               'ltv', 'ltvCacRatio', 'marginPct', 'markupPct', 'roiPct',
+               'paybackMonths', 'updatedAt', 'createdBy',
+               'hasPlanFactData', 'planFactPlanPrice', 'planFactPlanVolume',
+               'planFactPlanCost', 'planFactPlanDays', 'planFactActualPrice',
+               'planFactActualVolume', 'planFactActualCost', 'planFactActualDays',
+               'planFactActualPenalties', 'planFactCapitalRate'
+             ]) &&
+             data.keys().hasOnly([
+               'id', 'title', 'clientName', 'currencyCode', 'dealValue',
+               'interestRatePct', 'tenureMonths', 'frequency', 'periodicPayment',
+               'ltv', 'ltvCacRatio', 'marginPct', 'markupPct', 'roiPct',
+               'paybackMonths', 'updatedAt', 'createdBy',
+               'hasPlanFactData', 'planFactPlanPrice', 'planFactPlanVolume',
+               'planFactPlanCost', 'planFactPlanDays', 'planFactActualPrice',
+               'planFactActualVolume', 'planFactActualCost', 'planFactActualDays',
+               'planFactActualPenalties', 'planFactCapitalRate'
+             ]) &&
+             data.id == dealId &&
+             isValidId(data.id) &&
+             data.createdBy == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.clientName is string && data.clientName.size() >= 1 && data.clientName.size() <= 150 &&
+             data.currencyCode is string && data.currencyCode.size() >= 1 && data.currencyCode.size() <= 10 &&
+             isFiniteNumber(data.dealValue) && data.dealValue >= 0 && data.dealValue <= 1000000000000 &&
+             isFiniteNumber(data.interestRatePct) && data.interestRatePct >= 0 && data.interestRatePct <= 1000 &&
+             data.tenureMonths is int && data.tenureMonths >= 1 && data.tenureMonths <= 600 &&
+             data.frequency is string && isValidFrequency(data.frequency) &&
+             isFiniteNumber(data.periodicPayment) && data.periodicPayment >= 0 &&
+             isFiniteNumber(data.ltv) && data.ltv >= 0 &&
+             isFiniteNumber(data.ltvCacRatio) && data.ltvCacRatio >= 0 &&
+             isFiniteNumber(data.marginPct) && data.marginPct >= -1000 && data.marginPct <= 100 &&
+             isFiniteNumber(data.markupPct) && data.markupPct >= -100 && data.markupPct <= 100000 &&
+             isFiniteNumber(data.roiPct) && data.roiPct >= -1000 && data.roiPct <= 1000000 &&
+             isFiniteNumber(data.paybackMonths) && data.paybackMonths >= 0 &&
+             data.updatedAt is int && data.updatedAt >= 0 &&
+             data.hasPlanFactData is bool &&
+             isFiniteNumber(data.planFactPlanPrice) && data.planFactPlanPrice >= 0 &&
+             data.planFactPlanVolume is int && data.planFactPlanVolume >= 0 &&
+             isFiniteNumber(data.planFactPlanCost) && data.planFactPlanCost >= 0 &&
+             data.planFactPlanDays is int && data.planFactPlanDays >= 0 && data.planFactPlanDays <= 3650 &&
+             isFiniteNumber(data.planFactActualPrice) && data.planFactActualPrice >= 0 &&
+             data.planFactActualVolume is int && data.planFactActualVolume >= 0 &&
+             isFiniteNumber(data.planFactActualCost) && data.planFactActualCost >= 0 &&
+             data.planFactActualDays is int && data.planFactActualDays >= 0 && data.planFactActualDays <= 3650 &&
+             isFiniteNumber(data.planFactActualPenalties) && data.planFactActualPenalties >= 0 &&
+             isFiniteNumber(data.planFactCapitalRate) && data.planFactCapitalRate >= 0 && data.planFactCapitalRate <= 1000;
+    }
+
+    // User deals: strictly private to the authenticated owner with full schema validation
+    match /users/{userId}/deals/{dealId} {
+      allow get: if isOwner(userId) && isValidId(dealId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+                       isValidId(dealId) &&
+                       isValidDeal(incoming(), userId, dealId);
+      allow update: if isOwner(userId) &&
+                       isValidId(dealId) &&
+                       isValidDeal(incoming(), userId, dealId) &&
+                       incoming().createdBy == existing().createdBy &&
+                       incoming().id == existing().id;
+      allow delete: if isOwner(userId) && isValidId(dealId);
+    }
   }
 }
-

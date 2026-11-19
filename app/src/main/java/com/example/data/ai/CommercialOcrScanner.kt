@@ -102,8 +102,6 @@ class CommercialOcrScanner {
 
                 val response = generativeModel.generateContent(promptContent)
                 val jsonString = response.text ?: throw IllegalStateException("Model returned empty text.")
-
-                Log.d(TAG, "OCR JSON response: $jsonString")
                 val json = JSONObject(jsonString)
 
                 OcrExtractedDealData(
@@ -128,7 +126,7 @@ class CommercialOcrScanner {
                 if (e is CancellationException && e !is TimeoutCancellationException) {
                     throw e
                 }
-                Log.e(TAG, "Failed to scan document: ${e.message}", e)
+                Log.e(TAG, "Failed to scan document: ${e.javaClass.simpleName}")
                 Result.failure(e)
             }
         )

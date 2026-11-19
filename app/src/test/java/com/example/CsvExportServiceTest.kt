@@ -23,6 +23,16 @@ class CsvExportServiceTest {
         assertEquals("\"Contains;Semicolon\"", CsvExportService.csvCell("Contains;Semicolon"))
         assertEquals("\"Contains\"\"Quotes\"\"Inside\"", CsvExportService.csvCell("Contains\"Quotes\"Inside"))
         assertEquals("\"Line1\nLine2\"", CsvExportService.csvCell("Line1\nLine2"))
+        assertEquals("\"Line1\r\nLine2\"", CsvExportService.csvCell("Line1\r\nLine2"))
+
+        // CSV Formula Injection sanitization
+        assertEquals("'=CMD|'/C calc'!A0", CsvExportService.csvCell("=CMD|'/C calc'!A0"))
+        assertEquals("\"'=SUM(A1,B1)\"", CsvExportService.csvCell("=SUM(A1,B1)"))
+        assertEquals("'+1+1", CsvExportService.csvCell("+1+1"))
+        assertEquals("'-1+1", CsvExportService.csvCell("-1+1"))
+        assertEquals("'@SUM(1+1)", CsvExportService.csvCell("@SUM(1+1)"))
+        assertEquals("\"'\t=HYPERLINK(\"\"http://evil\"\")\"", CsvExportService.csvCell("\t=HYPERLINK(\"http://evil\")"))
+        assertEquals("' =1+1", CsvExportService.csvCell(" =1+1"))
     }
 
     @Test

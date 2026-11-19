@@ -14,9 +14,7 @@ class ClientNegotiationRepository {
     private val _clients = MutableStateFlow<List<ClientNegotiationProfile>>(emptyList())
     val clients: StateFlow<List<ClientNegotiationProfile>> = _clients.asStateFlow()
 
-    init {
-        // Pre-seed realistic counterparties with complete historical records
-        _clients.value = listOf(
+    private val defaultClients: List<ClientNegotiationProfile> = listOf(
             ClientNegotiationProfile(
                 id = "client-omnitech-01",
                 name = "OmniTech Solutions Inc.",
@@ -167,6 +165,14 @@ class ClientNegotiationRepository {
                 )
             )
         )
+
+    init {
+        // Pre-seed realistic counterparties with complete historical records
+        _clients.value = defaultClients
+    }
+
+    fun resetToDefaults() {
+        _clients.value = defaultClients
     }
 
     fun addClient(profile: ClientNegotiationProfile) {

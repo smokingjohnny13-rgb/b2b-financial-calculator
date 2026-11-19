@@ -92,8 +92,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+
 class BigDealViewModel(
-    private val dealRepository: DealRepository = DealRepository(),
+    private val dealRepository: DealRepository,
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
@@ -1024,7 +1027,12 @@ class BigDealViewModel(
                 )
             )
             dealRepository.saveDeal(deal)
-            _userMessage.emit(str("Deal proposal saved & synced: ${deal.title}", "Сценарий сделки сохранен и синхронизирован: ${deal.title}", appLanguage.value))
+                .onSuccess {
+                    _userMessage.emit(str("Deal proposal saved & synced: ${deal.title}", "Сценарий сделки сохранен и синхронизирован: ${deal.title}", appLanguage.value))
+                }
+                .onFailure {
+                    _userMessage.emit(str("Saved locally, but cloud sync failed. Check permissions or connection.", "Сохранено локально, но облачная синхронизация не удалась.", appLanguage.value))
+                }
         }
     }
 
@@ -1084,7 +1092,12 @@ class BigDealViewModel(
     fun deleteDeal(dealId: String) {
         viewModelScope.launch {
             dealRepository.deleteDeal(dealId)
-            _userMessage.emit(str("Deal scenario deleted", "Сценарий сделки удален", appLanguage.value))
+                .onSuccess {
+                    _userMessage.emit(str("Deal scenario deleted", "Сценарий сделки удален", appLanguage.value))
+                }
+                .onFailure {
+                    _userMessage.emit(str("Removed locally, but cloud deletion failed.", "Удалено локально, но удаление в облаке не удалось.", appLanguage.value))
+                }
         }
     }
 
@@ -1214,10 +1227,26 @@ class BigDealViewModel(
     }
 
     fun signOut() {
-        authRepository.signOut()
         viewModelScope.launch {
-            _userMessage.emit("Signed out of Cloud Sync")
+            withContext(NonCancellable) {
+                dealRepository.resetForSignOut()
+                clientRepository.resetToDefaults()
+                resetSessionUiState()
+                authRepository.signOut()
+            }
+            _userMessage.emit(str("Signed out and session cache cleared", "Выход выполнен, данные сессии очищены", appLanguage.value))
         }
+    }
+
+    private fun resetSessionUiState() {
+        dealTitle.value = "Enterprise Platform & Support Agreement"
+        clientName.value = "Globex International"
+        selectedClientId.value = "client-omnitech-01"
+        dealApprovalStatus.value = DealApprovalStatus.DRAFT
+        ocrScanResult.value = null
+        ocrError.value = null
+        isOcrDialogOpen.value = false
+        _aiAuditState.value = AiAuditUiState.Idle
     }
 
     // --- Currency Selection & Custom Currencies ---
@@ -2081,11 +2110,15 @@ class BigDealViewModel(
             )
         )
         viewModelScope.launch {
-            dealRepository.saveDeal(newDeal)
+            val saveResult = dealRepository.saveDeal(newDeal)
             client?.let {
                 clientRepository.attachPastDealToClient(it.id, newDeal)
             }
-            _userMessage.emit(str("Deal approved and saved to client portfolio!", "Сделка утверждена и добавлена в портфель клиента!", appLanguage.value))
+            saveResult.onSuccess {
+                _userMessage.emit(str("Deal approved and saved to client portfolio!", "Сделка утверждена и добавлена в портфель клиента!", appLanguage.value))
+            }.onFailure {
+                _userMessage.emit(str("Deal approved locally, but cloud sync failed.", "Сделка утверждена локально, но синхронизация с облаком не удалась.", appLanguage.value))
+            }
         }
     }
 

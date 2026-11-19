@@ -1,23 +1,45 @@
 package com.example.data.repository
 
+import android.content.Context
 import android.util.Log
+import com.example.R
 import com.example.data.model.PaymentFrequency
 import com.example.data.model.SavedDeal
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
+
+enum class FirestoreOperationType(val value: String) {
+    CREATE("create"),
+    UPDATE("update"),
+    DELETE("delete"),
+    LIST("list"),
+    GET("get"),
+    WRITE("write")
+}
 
 class DealRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private var firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
+    private val databaseId: String? = null
 ) {
+    constructor(context: Context) : this(
+        firestore = FirebaseFirestore.getInstance(
+            context.applicationContext.getString(R.string.firestore_database_id)
+        ),
+        databaseId = context.applicationContext.getString(R.string.firestore_database_id)
+    )
+
     private val _deals = MutableStateFlow<List<SavedDeal>>(emptyList())
     val deals: StateFlow<List<SavedDeal>> = _deals.asStateFlow()
 
@@ -26,83 +48,93 @@ class DealRepository(
 
     private var dealsListener: ListenerRegistration? = null
 
-    init {
-        // Seed default high-value enterprise templates
-        _deals.value = listOf(
-            SavedDeal(
-                id = "deal-enterprise-saas-01",
-                title = "Global Enterprise Platform License",
-                clientName = "OmniTech Solutions Inc.",
-                currencyCode = "USD",
-                dealValue = 180000.0,
-                interestRatePct = 5.5,
-                tenureMonths = 36,
-                frequency = PaymentFrequency.MONTHLY,
-                periodicPayment = 5437.42,
-                ltv = 240000.0,
-                ltvCacRatio = 4.8,
-                marginPct = 52.0,
-                markupPct = 108.3,
-                roiPct = 168.0,
-                paybackMonths = 7.1,
-                updatedAt = System.currentTimeMillis() - 86400000,
-                createdBy = "local_executive"
-            ),
-            SavedDeal(
-                id = "deal-emea-expansion-02",
-                title = "EMEA Multi-Region Cloud Migration",
-                clientName = "Vanguard Financial AG",
-                currencyCode = "EUR",
-                dealValue = 95000.0,
-                interestRatePct = 4.8,
-                tenureMonths = 24,
-                frequency = PaymentFrequency.QUARTERLY,
-                periodicPayment = 12510.35,
-                ltv = 150000.0,
-                ltvCacRatio = 3.6,
-                marginPct = 44.5,
-                markupPct = 80.2,
-                roiPct = 132.5,
-                paybackMonths = 9.2,
-                updatedAt = System.currentTimeMillis() - 172800000,
-                createdBy = "local_executive"
-            ),
-            SavedDeal(
-                id = "deal-apac-retail-03",
-                title = "APAC Retail Core Transformation",
-                clientName = "Aegis Retail Network",
-                currencyCode = "GBP",
-                dealValue = 240000.0,
-                interestRatePct = 6.2,
-                tenureMonths = 48,
-                frequency = PaymentFrequency.ANNUALLY,
-                periodicPayment = 69820.10,
-                ltv = 360000.0,
-                ltvCacRatio = 5.4,
-                marginPct = 58.0,
-                markupPct = 138.1,
-                roiPct = 210.0,
-                paybackMonths = 5.8,
-                updatedAt = System.currentTimeMillis() - 259200000,
-                createdBy = "local_executive"
-            )
+    private val idRegex = Regex("^[a-zA-Z0-9_\\-]{1,128}$")
+
+    private val defaultPresets: List<SavedDeal> = listOf(
+        SavedDeal(
+            id = "deal-enterprise-saas-01",
+            title = "Global Enterprise Platform License",
+            clientName = "OmniTech Solutions Inc.",
+            currencyCode = "USD",
+            dealValue = 180000.0,
+            interestRatePct = 5.5,
+            tenureMonths = 36,
+            frequency = PaymentFrequency.MONTHLY,
+            periodicPayment = 5437.42,
+            ltv = 240000.0,
+            ltvCacRatio = 4.8,
+            marginPct = 52.0,
+            markupPct = 108.3,
+            roiPct = 168.0,
+            paybackMonths = 7.1,
+            updatedAt = System.currentTimeMillis() - 86400000,
+            createdBy = "local_executive"
+        ),
+        SavedDeal(
+            id = "deal-emea-expansion-02",
+            title = "EMEA Multi-Region Cloud Migration",
+            clientName = "Vanguard Financial AG",
+            currencyCode = "EUR",
+            dealValue = 95000.0,
+            interestRatePct = 4.8,
+            tenureMonths = 24,
+            frequency = PaymentFrequency.QUARTERLY,
+            periodicPayment = 12510.35,
+            ltv = 150000.0,
+            ltvCacRatio = 3.6,
+            marginPct = 44.5,
+            markupPct = 80.2,
+            roiPct = 132.5,
+            paybackMonths = 9.2,
+            updatedAt = System.currentTimeMillis() - 172800000,
+            createdBy = "local_executive"
+        ),
+        SavedDeal(
+            id = "deal-apac-retail-03",
+            title = "APAC Retail Core Transformation",
+            clientName = "Aegis Retail Network",
+            currencyCode = "GBP",
+            dealValue = 240000.0,
+            interestRatePct = 6.2,
+            tenureMonths = 48,
+            frequency = PaymentFrequency.ANNUALLY,
+            periodicPayment = 69820.10,
+            ltv = 360000.0,
+            ltvCacRatio = 5.4,
+            marginPct = 58.0,
+            markupPct = 138.1,
+            roiPct = 210.0,
+            paybackMonths = 5.8,
+            updatedAt = System.currentTimeMillis() - 259200000,
+            createdBy = "local_executive"
         )
+    )
+
+    init {
+        _deals.value = defaultPresets
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun startFirestoreSync(scope: CoroutineScope) {
-        val uid = auth.currentUser?.uid ?: return
+        val uid = auth.currentUser?.uid?.takeIf { it.isNotBlank() } ?: return
         dealsListener?.remove()
 
+        val path = "users/$uid/deals"
         dealsListener = firestore.collection("users").document(uid).collection("deals")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.w("DealRepo", "Firestore deals listener error: ${error.message}")
+                    if (auth.currentUser?.uid == uid) {
+                        handleFirestoreError(error, FirestoreOperationType.LIST, path)
+                    }
                     return@addSnapshotListener
                 }
 
                 if (snapshot != null && !snapshot.isEmpty) {
                     val remoteDeals = snapshot.documents.mapNotNull { doc ->
                         try {
+                            val rawFrequency = doc.getString("frequency")
+                            val parsedFrequency = enumValues<PaymentFrequency>()
+                                .firstOrNull { it.name == rawFrequency } ?: PaymentFrequency.MONTHLY
                             SavedDeal(
                                 id = doc.getString("id") ?: doc.id,
                                 title = doc.getString("title") ?: "Untitled Deal",
@@ -110,8 +142,8 @@ class DealRepository(
                                 currencyCode = doc.getString("currencyCode") ?: "USD",
                                 dealValue = doc.getDouble("dealValue") ?: 0.0,
                                 interestRatePct = doc.getDouble("interestRatePct") ?: 0.0,
-                                tenureMonths = (doc.getLong("tenureMonths") ?: 12).toInt(),
-                                frequency = PaymentFrequency.valueOf(doc.getString("frequency") ?: PaymentFrequency.MONTHLY.name),
+                                tenureMonths = (doc.getLong("tenureMonths") ?: 12L).toInt(),
+                                frequency = parsedFrequency,
                                 periodicPayment = doc.getDouble("periodicPayment") ?: 0.0,
                                 ltv = doc.getDouble("ltv") ?: 0.0,
                                 ltvCacRatio = doc.getDouble("ltvCacRatio") ?: 0.0,
@@ -133,13 +165,13 @@ class DealRepository(
                                 planFactActualPenalties = doc.getDouble("planFactActualPenalties") ?: 0.0,
                                 planFactCapitalRate = doc.getDouble("planFactCapitalRate") ?: 18.0
                             )
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
                     if (remoteDeals.isNotEmpty()) {
-                        // Merge remote deals with local presets
-                        val merged = (remoteDeals + _deals.value).distinctBy { it.id }
+                        // Merge remote user deals with clean default presets (never stale user deals)
+                        val merged = (remoteDeals + defaultPresets).distinctBy { it.id }
                         _deals.value = merged.sortedByDescending { it.updatedAt }
                     }
                 }
@@ -151,84 +183,184 @@ class DealRepository(
         dealsListener = null
     }
 
+    suspend fun resetForSignOut() {
+        stopFirestoreSync()
+        _deals.value = defaultPresets
+        _isSyncing.value = false
+        try {
+            firestore.terminate().await()
+            firestore.clearPersistence().await()
+            databaseId?.takeIf { it.isNotBlank() }?.let { dbId ->
+                firestore = FirebaseFirestore.getInstance(dbId)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("DealRepo", "Could not clear Firestore offline cache on sign-out: ${e.message}")
+        }
+    }
+
     suspend fun saveDeal(deal: SavedDeal): Result<Unit> {
+        val uid = auth.currentUser?.uid?.takeIf { it.isNotBlank() }
+        val safeDeal = sanitizeForRules(deal, uid ?: deal.createdBy)
+        val docPath = if (uid != null) "users/$uid/deals/${safeDeal.id}" else "local/deals/${safeDeal.id}"
+
         return try {
             _isSyncing.value = true
             // Update local state immediately
             val current = _deals.value.toMutableList()
-            val existingIndex = current.indexOfFirst { it.id == deal.id }
+            val existingIndex = current.indexOfFirst { it.id == safeDeal.id }
             if (existingIndex >= 0) {
-                current[existingIndex] = deal
+                current[existingIndex] = safeDeal
             } else {
-                current.add(0, deal)
+                current.add(0, safeDeal)
             }
             _deals.value = current.sortedByDescending { it.updatedAt }
 
             // Sync to Firestore if authenticated
-            val uid = auth.currentUser?.uid
             if (uid != null) {
-                val data = hashMapOf(
-                    "id" to deal.id,
-                    "title" to deal.title,
-                    "clientName" to deal.clientName,
-                    "currencyCode" to deal.currencyCode,
-                    "dealValue" to deal.dealValue,
-                    "interestRatePct" to deal.interestRatePct,
-                    "tenureMonths" to deal.tenureMonths,
-                    "frequency" to deal.frequency.name,
-                    "periodicPayment" to deal.periodicPayment,
-                    "ltv" to deal.ltv,
-                    "ltvCacRatio" to deal.ltvCacRatio,
-                    "marginPct" to deal.marginPct,
-                    "markupPct" to deal.markupPct,
-                    "roiPct" to deal.roiPct,
-                    "paybackMonths" to deal.paybackMonths,
-                    "updatedAt" to deal.updatedAt,
+                val data = hashMapOf<String, Any>(
+                    "id" to safeDeal.id,
+                    "title" to safeDeal.title,
+                    "clientName" to safeDeal.clientName,
+                    "currencyCode" to safeDeal.currencyCode,
+                    "dealValue" to safeDeal.dealValue,
+                    "interestRatePct" to safeDeal.interestRatePct,
+                    "tenureMonths" to safeDeal.tenureMonths,
+                    "frequency" to safeDeal.frequency.name,
+                    "periodicPayment" to safeDeal.periodicPayment,
+                    "ltv" to safeDeal.ltv,
+                    "ltvCacRatio" to safeDeal.ltvCacRatio,
+                    "marginPct" to safeDeal.marginPct,
+                    "markupPct" to safeDeal.markupPct,
+                    "roiPct" to safeDeal.roiPct,
+                    "paybackMonths" to safeDeal.paybackMonths,
+                    "updatedAt" to safeDeal.updatedAt,
                     "createdBy" to uid,
-                    "hasPlanFactData" to deal.hasPlanFactData,
-                    "planFactPlanPrice" to deal.planFactPlanPrice,
-                    "planFactPlanVolume" to deal.planFactPlanVolume,
-                    "planFactPlanCost" to deal.planFactPlanCost,
-                    "planFactPlanDays" to deal.planFactPlanDays,
-                    "planFactActualPrice" to deal.planFactActualPrice,
-                    "planFactActualVolume" to deal.planFactActualVolume,
-                    "planFactActualCost" to deal.planFactActualCost,
-                    "planFactActualDays" to deal.planFactActualDays,
-                    "planFactActualPenalties" to deal.planFactActualPenalties,
-                    "planFactCapitalRate" to deal.planFactCapitalRate
+                    "hasPlanFactData" to safeDeal.hasPlanFactData,
+                    "planFactPlanPrice" to safeDeal.planFactPlanPrice,
+                    "planFactPlanVolume" to safeDeal.planFactPlanVolume,
+                    "planFactPlanCost" to safeDeal.planFactPlanCost,
+                    "planFactPlanDays" to safeDeal.planFactPlanDays,
+                    "planFactActualPrice" to safeDeal.planFactActualPrice,
+                    "planFactActualVolume" to safeDeal.planFactActualVolume,
+                    "planFactActualCost" to safeDeal.planFactActualCost,
+                    "planFactActualDays" to safeDeal.planFactActualDays,
+                    "planFactActualPenalties" to safeDeal.planFactActualPenalties,
+                    "planFactCapitalRate" to safeDeal.planFactCapitalRate
                 )
                 firestore.collection("users").document(uid).collection("deals")
-                    .document(deal.id)
+                    .document(safeDeal.id)
                     .set(data)
                     .await()
             }
             _isSyncing.value = false
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            _isSyncing.value = false
+            throw e
         } catch (e: Exception) {
             _isSyncing.value = false
-            Log.e("DealRepo", "Failed to sync deal to Firestore: ${e.message}", e)
-            // Local save still succeeded
-            Result.success(Unit)
+            handleFirestoreError(e, FirestoreOperationType.WRITE, docPath)
+            Result.failure(e)
         }
     }
 
     suspend fun deleteDeal(dealId: String): Result<Unit> {
+        val uid = auth.currentUser?.uid?.takeIf { it.isNotBlank() }
+        val docPath = if (uid != null) "users/$uid/deals/$dealId" else "local/deals/$dealId"
+
         return try {
             val current = _deals.value.toMutableList()
             current.removeAll { it.id == dealId }
             _deals.value = current
 
-            val uid = auth.currentUser?.uid
-            if (uid != null) {
+            if (uid != null && idRegex.matches(dealId)) {
                 firestore.collection("users").document(uid).collection("deals")
                     .document(dealId)
                     .delete()
                     .await()
             }
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e("DealRepo", "Failed to delete deal from Firestore: ${e.message}", e)
-            Result.success(Unit)
+            handleFirestoreError(e, FirestoreOperationType.DELETE, docPath)
+            Result.failure(e)
         }
+    }
+
+    private fun sanitizeForRules(deal: SavedDeal, ownerId: String): SavedDeal {
+        fun safeDouble(value: Double, min: Double, max: Double): Double {
+            val finite = if (value.isFinite()) value else 0.0
+            return finite.coerceIn(min, max)
+        }
+        val safeId = if (idRegex.matches(deal.id)) deal.id else UUID.randomUUID().toString()
+        return deal.copy(
+            id = safeId,
+            title = deal.title.trim().ifBlank { "Untitled Deal" }.take(150),
+            clientName = deal.clientName.trim().ifBlank { "Client" }.take(150),
+            currencyCode = deal.currencyCode.trim().uppercase().ifBlank { "USD" }.take(10),
+            dealValue = safeDouble(deal.dealValue, 0.0, 1_000_000_000_000.0),
+            interestRatePct = safeDouble(deal.interestRatePct, 0.0, 1000.0),
+            tenureMonths = deal.tenureMonths.coerceIn(1, 600),
+            periodicPayment = safeDouble(deal.periodicPayment, 0.0, 1_000_000_000_000.0),
+            ltv = safeDouble(deal.ltv, 0.0, 1_000_000_000_000.0),
+            ltvCacRatio = safeDouble(deal.ltvCacRatio, 0.0, 100_000.0),
+            marginPct = safeDouble(deal.marginPct, -1000.0, 100.0),
+            markupPct = safeDouble(deal.markupPct, -100.0, 100_000.0),
+            roiPct = safeDouble(deal.roiPct, -1000.0, 1_000_000.0),
+            paybackMonths = safeDouble(deal.paybackMonths, 0.0, 100_000.0),
+            updatedAt = deal.updatedAt.coerceAtLeast(0L),
+            createdBy = ownerId,
+            planFactPlanPrice = safeDouble(deal.planFactPlanPrice, 0.0, 1_000_000_000_000.0),
+            planFactPlanVolume = deal.planFactPlanVolume.coerceAtLeast(0),
+            planFactPlanCost = safeDouble(deal.planFactPlanCost, 0.0, 1_000_000_000_000.0),
+            planFactPlanDays = deal.planFactPlanDays.coerceIn(0, 3650),
+            planFactActualPrice = safeDouble(deal.planFactActualPrice, 0.0, 1_000_000_000_000.0),
+            planFactActualVolume = deal.planFactActualVolume.coerceAtLeast(0),
+            planFactActualCost = safeDouble(deal.planFactActualCost, 0.0, 1_000_000_000_000.0),
+            planFactActualDays = deal.planFactActualDays.coerceIn(0, 3650),
+            planFactActualPenalties = safeDouble(deal.planFactActualPenalties, 0.0, 1_000_000_000_000.0),
+            planFactCapitalRate = safeDouble(deal.planFactCapitalRate, 0.0, 1000.0)
+        )
+    }
+
+    private fun handleFirestoreError(
+        exception: Throwable,
+        operationType: FirestoreOperationType,
+        path: String?
+    ): String {
+        val causes = generateSequence(exception) { it.cause }
+        val rootError = causes.firstOrNull { it is FirebaseFirestoreException }
+            ?: causes.firstOrNull { it !is CancellationException }
+            ?: exception
+
+        val currentUser = auth.currentUser
+        val providerInfoList = currentUser?.providerData?.map { provider ->
+            JSONObject().apply {
+                put("providerId", provider.providerId)
+                put("email", provider.email)
+            }
+        } ?: emptyList()
+
+        val authInfoJson = JSONObject().apply {
+            put("userId", currentUser?.uid)
+            put("email", currentUser?.email)
+            put("emailVerified", currentUser?.isEmailVerified)
+            put("tenantId", currentUser?.tenantId)
+            put("providerInfo", JSONArray(providerInfoList))
+        }
+
+        val errorInfoJson = JSONObject().apply {
+            put("error", rootError.message ?: rootError.toString())
+            put("operationType", operationType.value)
+            put("path", path)
+            put("authInfo", authInfoJson)
+        }
+
+        val jsonString = errorInfoJson.toString()
+        Log.e("FirestoreError", "Firestore Error: $jsonString")
+        return jsonString
     }
 }

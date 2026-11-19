@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val authRepo = AuthRepository(applicationContext)
-        val dealRepo = DealRepository()
+        val dealRepo = DealRepository(applicationContext)
 
         setContent {
             val viewModel: BigDealViewModel = viewModel {
