@@ -307,6 +307,21 @@ class BigDealViewModel(
         }
     }
 
+    // Screen Privacy Mode (FLAG_SECURE toggle to block screenshots & recent-app previews)
+    val isPrivacyModeEnabled = MutableStateFlow(false)
+
+    fun setPrivacyMode(enabled: Boolean) {
+        isPrivacyModeEnabled.value = enabled
+        val msg = if (enabled) {
+            str("Screen Privacy enabled (screenshots & previews blocked)", "Защита экрана включена (скриншоты и превью заблокированы)", appLanguage.value)
+        } else {
+            str("Screen Privacy disabled", "Защита экрана отключена", appLanguage.value)
+        }
+        viewModelScope.launch {
+            _userMessage.emit(msg)
+        }
+    }
+
     val activeCurrency = MutableStateFlow(CurrencyEngine.findByCode("USD"))
     val customCurrencies = MutableStateFlow(CurrencyEngine.DEFAULT_CURRENCIES)
 
@@ -1973,7 +1988,8 @@ class BigDealViewModel(
         }
     }
 
-    fun applyOcrExtractedData(data: OcrExtractedDealData) {
+    fun applyOcrExtractedData(rawData: OcrExtractedDealData) {
+        val data = CommercialOcrScanner.sanitizeOcrResult(rawData)
         if (data.clientName.isNotBlank()) {
             clientName.value = data.clientName
         }

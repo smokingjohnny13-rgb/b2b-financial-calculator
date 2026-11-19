@@ -87,11 +87,10 @@ fun CommercialOcrDialog(
     ) { uri: Uri? ->
         if (uri != null) {
             runCatching {
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    val bmp = BitmapFactory.decodeStream(stream)
-                    selectedPreviewBitmap = bmp
-                    viewModel.scanDocumentBitmap(bmp)
-                }
+                val bmp = decodeSampledBitmapFromUri(context, uri, maxDim = 1600)
+                    ?: error("Unsupported or empty image")
+                selectedPreviewBitmap = bmp
+                viewModel.scanDocumentBitmap(bmp)
             }.onFailure { e ->
                 Toast.makeText(context, "Error opening photo: ${e.message}", Toast.LENGTH_SHORT).show()
             }
@@ -103,8 +102,9 @@ fun CommercialOcrDialog(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         if (bitmap != null) {
-            selectedPreviewBitmap = bitmap
-            viewModel.scanDocumentBitmap(bitmap)
+            val bounded = downscaleBitmapIfNeeded(bitmap, maxDim = 1600)
+            selectedPreviewBitmap = bounded
+            viewModel.scanDocumentBitmap(bounded)
         }
     }
 
@@ -445,4 +445,40 @@ private fun OcrMetricRow(label: String, value: String) {
             color = if (value != "-") ElectricCyan else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
     }
+}
+
+private fun decodeSampledBitmapFromUri(
+    context: android.content.Context,
+    uri: Uri,
+    maxDim: Int
+): Bitmap? {
+    val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream, null, boundsOpts)
+    }
+    if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) return null
+
+    var sampleSize = 1
+    while (boundsOpts.outWidth / sampleSize > maxDim || boundsOpts.outHeight / sampleSize > maxDim) {
+        sampleSize *= 2
+    }
+
+    val decodeOpts = BitmapFactory.Options().apply {
+        inSampleSize = sampleSize
+        inPreferredConfig = Bitmap.Config.RGB_565
+    }
+    val decoded = context.contentResolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream, null, decodeOpts)
+    } ?: return null
+
+    return downscaleBitmapIfNeeded(decoded, maxDim)
+}
+
+private fun downscaleBitmapIfNeeded(bitmap: Bitmap, maxDim: Int): Bitmap {
+    val maxCurrent = maxOf(bitmap.width, bitmap.height)
+    if (maxCurrent <= maxDim) return bitmap
+    val ratio = maxDim.toFloat() / maxCurrent.toFloat()
+    val targetW = (bitmap.width * ratio).toInt().coerceAtLeast(1)
+    val targetH = (bitmap.height * ratio).toInt().coerceAtLeast(1)
+    return Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
 }

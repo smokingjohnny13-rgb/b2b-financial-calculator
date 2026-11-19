@@ -10,9 +10,12 @@ import com.example.domain.calculator.PlanFactVarianceEngine
 import com.example.domain.model.FinancialFormulaGlossary
 import com.example.service.CsvExportService
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 class CsvExportServiceTest {
 
@@ -264,5 +267,28 @@ class CsvExportServiceTest {
         assertTrue(item.titleRu.contains("План-Факт"))
         assertTrue(item.formulaLatexEn.contains("Volume"))
         assertTrue(item.formulaLatexRu.contains("Штрафы"))
+    }
+
+    @Test
+    fun `test pruneStaleReports deletes expired and excess files while keeping newest`() {
+        val dir = createTempDirectory("reports_prune_test").toFile()
+        try {
+            val now = 1_000_000_000L
+            val fOld = File(dir, "old.pdf").apply { writeText("old"); setLastModified(now - 2_000_000L) }
+            val f1 = File(dir, "f1.pdf").apply { writeText("1"); setLastModified(now - 500_000L) }
+            val f2 = File(dir, "f2.csv").apply { writeText("2"); setLastModified(now - 400_000L) }
+            val f3 = File(dir, "f3.pdf").apply { writeText("3"); setLastModified(now - 300_000L) }
+            val f4 = File(dir, "f4.csv").apply { writeText("4"); setLastModified(now - 100_000L) }
+
+            CsvExportService.pruneStaleReports(dir, nowMs = now, maxAgeMs = 900_000L, keepNewest = 3)
+
+            assertFalse(fOld.exists())
+            assertFalse(f1.exists())
+            assertTrue(f2.exists())
+            assertTrue(f3.exists())
+            assertTrue(f4.exists())
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 }

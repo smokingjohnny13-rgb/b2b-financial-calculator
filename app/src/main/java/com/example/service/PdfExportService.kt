@@ -114,6 +114,7 @@ object PdfExportService {
 
             val reportsDir = File(context.cacheDir, "reports")
             if (!reportsDir.exists()) reportsDir.mkdirs()
+            CsvExportService.pruneStaleReports(reportsDir)
 
             val sanitizedTitle = deal.title.replace("[^a-zA-Z0-9]".toRegex(), "_")
             val pdfFile = File(reportsDir, "NotaBigDeal_${sanitizedTitle}_${System.currentTimeMillis()}.pdf")
@@ -172,6 +173,7 @@ object PdfExportService {
 
             val reportsDir = File(context.cacheDir, "reports")
             if (!reportsDir.exists()) reportsDir.mkdirs()
+            CsvExportService.pruneStaleReports(reportsDir)
 
             val pdfFile = File(reportsDir, "NotaBigDeal_Executive_Flyer_${System.currentTimeMillis()}.pdf")
             val outputStream = FileOutputStream(pdfFile)

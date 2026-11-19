@@ -3,6 +3,7 @@
 package com.example
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -138,6 +139,15 @@ class MainActivity : ComponentActivity() {
                 )
             }
             val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+            val isPrivacyMode by viewModel.isPrivacyModeEnabled.collectAsState()
+
+            LaunchedEffect(isPrivacyMode) {
+                if (isPrivacyMode) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
 
             BigDealTheme(darkTheme = isDarkTheme) {
                 val snackbarHostState = remember { SnackbarHostState() }

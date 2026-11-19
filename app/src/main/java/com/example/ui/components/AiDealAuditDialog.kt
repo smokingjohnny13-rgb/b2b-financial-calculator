@@ -1,8 +1,11 @@
 package com.example.ui.components
 
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
+import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -749,7 +752,13 @@ private fun copyThesesToClipboard(context: Context, result: AiDealAuditResult) {
     }
 
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val clip = ClipData.newPlainText("Deal Risk Audit", sb.toString())
+    val clip = ClipData.newPlainText("Deal Risk Audit", sb.toString()).apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            description.extras = PersistableBundle().apply {
+                putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+            }
+        }
+    }
     clipboard.setPrimaryClip(clip)
     Toast.makeText(context, "Аудит скопирован в буфер обмена", Toast.LENGTH_SHORT).show()
 }

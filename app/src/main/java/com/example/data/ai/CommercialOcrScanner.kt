@@ -104,7 +104,7 @@ class CommercialOcrScanner {
                 val jsonString = response.text ?: throw IllegalStateException("Model returned empty text.")
                 val json = JSONObject(jsonString)
 
-                OcrExtractedDealData(
+                val rawData = OcrExtractedDealData(
                     clientName = json.optString("clientName", ""),
                     documentType = json.optString("documentType", "Commercial Document"),
                     shelfPriceRsp = if (json.has("shelfPriceRsp") && !json.isNull("shelfPriceRsp")) json.getDouble("shelfPriceRsp") else null,
@@ -119,6 +119,7 @@ class CommercialOcrScanner {
                     currencyCode = json.optString("currencyCode", "RUB").uppercase(),
                     summaryFindings = json.optString("summaryFindings", "")
                 )
+                sanitizeOcrResult(rawData)
             }
         }.fold(
             onSuccess = { Result.success(it) },
@@ -130,5 +131,37 @@ class CommercialOcrScanner {
                 Result.failure(e)
             }
         )
+    }
+
+    companion object {
+        private val controlCharsRegex = Regex("[\\r\\n\\t\\p{Cntrl}]")
+
+        fun sanitizeText(value: String, maxLen: Int): String {
+            return value.replace(controlCharsRegex, " ").trim().take(maxLen)
+        }
+
+        fun sanitizeOcrResult(raw: OcrExtractedDealData): OcrExtractedDealData {
+            val cleanCurrency = raw.currencyCode
+                .uppercase()
+                .filter { it in 'A'..'Z' }
+                .take(3)
+                .ifBlank { "RUB" }
+
+            return OcrExtractedDealData(
+                clientName = sanitizeText(raw.clientName, 120),
+                documentType = sanitizeText(raw.documentType, 80).ifBlank { "Commercial Document" },
+                shelfPriceRsp = raw.shelfPriceRsp?.takeIf { it.isFinite() && it > 0.0 && it <= 1_000_000_000.0 },
+                vatRatePct = raw.vatRatePct?.takeIf { it.isFinite() && it in 0.0..50.0 },
+                retailerMarginPct = raw.retailerMarginPct?.takeIf { it.isFinite() && it in 0.0..95.0 },
+                frontDiscountPct = raw.frontDiscountPct?.takeIf { it.isFinite() && it in 0.0..95.0 },
+                backBonusPct = raw.backBonusPct?.takeIf { it.isFinite() && it in 0.0..95.0 },
+                logisticsCostPerUnit = raw.logisticsCostPerUnit?.takeIf { it.isFinite() && it in 0.0..100_000_000.0 },
+                supplierCogs = raw.supplierCogs?.takeIf { it.isFinite() && it >= 0.0 && it <= 1_000_000_000.0 },
+                paymentTermsDays = raw.paymentTermsDays?.takeIf { it in 0..3650 },
+                contractVolumeUnits = raw.contractVolumeUnits?.takeIf { it in 1..100_000_000 },
+                currencyCode = cleanCurrency,
+                summaryFindings = sanitizeText(raw.summaryFindings, 400)
+            )
+        }
     }
 }

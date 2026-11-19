@@ -47,12 +47,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.os.PersistableBundle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,7 +86,7 @@ fun GiveGetBalancingCard(
     val concessionValue by viewModel.giveConcessionValue.collectAsState()
     val giveGetResult by viewModel.giveGetResult.collectAsState()
 
-    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     var copiedScript by remember { mutableStateOf(false) }
 
     Box(
@@ -517,7 +522,15 @@ fun GiveGetBalancingCard(
 
                         IconButton(
                             onClick = {
-                                clipboardManager.setText(AnnotatedString(script))
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("KAM Negotiation Script", script).apply {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        description.extras = PersistableBundle().apply {
+                                            putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                                        }
+                                    }
+                                }
+                                clipboard.setPrimaryClip(clip)
                                 copiedScript = true
                             },
                             modifier = Modifier.size(26.dp)

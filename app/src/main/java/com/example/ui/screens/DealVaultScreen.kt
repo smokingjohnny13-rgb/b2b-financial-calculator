@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.mutableIntStateOf
 import com.example.ui.components.ClientNegotiationCard
 import com.example.ui.components.DealApprovalScoringCard
@@ -95,6 +96,7 @@ fun DealVaultScreen(
     val savedDeals by viewModel.savedDeals.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val isPrivacyMode by viewModel.isPrivacyModeEnabled.collectAsState()
 
     val currentTitle by viewModel.dealTitle.collectAsState()
     val currentClient by viewModel.clientName.collectAsState()
@@ -305,6 +307,46 @@ fun DealVaultScreen(
                                 Text(tr("Sign Out", "Выйти"), fontSize = 11.sp)
                             }
                         }
+                    }
+
+                    HorizontalDivider(color = ExecutiveBorder, thickness = 0.5.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = if (isPrivacyMode) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = tr("Screen Privacy (FLAG_SECURE)", "Защита экрана (FLAG_SECURE)"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = tr("Block screenshots & app-switcher previews", "Блокирует скриншоты и превью в недавних"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isPrivacyMode,
+                            onCheckedChange = { viewModel.setPrivacyMode(it) },
+                            modifier = Modifier.testTag("switch_privacy_mode")
+                        )
                     }
                 }
             }

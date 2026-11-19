@@ -38,6 +38,7 @@ object CsvExportService {
         return runCatching {
             val reportsDir = File(context.cacheDir, "reports")
             if (!reportsDir.exists()) reportsDir.mkdirs()
+            pruneStaleReports(reportsDir)
 
             val sanitizedTitle = deal.title.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(30)
             val csvFile = File(reportsDir, "NotaBigDeal_${sanitizedTitle}_${System.currentTimeMillis()}.csv")
@@ -176,6 +177,7 @@ object CsvExportService {
         return runCatching {
             val reportsDir = File(context.cacheDir, "reports")
             if (!reportsDir.exists()) reportsDir.mkdirs()
+            pruneStaleReports(reportsDir)
 
             val csvFile = File(reportsDir, "NotaBigDeal_Portfolio_Registry_${System.currentTimeMillis()}.csv")
 
@@ -274,5 +276,21 @@ object CsvExportService {
         val chooser = Intent.createChooser(shareIntent, "Share CSV / Excel Spreadsheet")
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
+    }
+
+    internal fun pruneStaleReports(
+        reportsDir: File,
+        nowMs: Long = System.currentTimeMillis(),
+        maxAgeMs: Long = 15 * 60 * 1000L,
+        keepNewest: Int = 3
+    ) {
+        val files = reportsDir.listFiles()?.filter { it.isFile } ?: return
+        val sortedDesc = files.sortedByDescending { it.lastModified() }
+        sortedDesc.forEachIndexed { index, file ->
+            val isExpired = (nowMs - file.lastModified()) > maxAgeMs
+            if (isExpired || index >= keepNewest) {
+                file.delete()
+            }
+        }
     }
 }
