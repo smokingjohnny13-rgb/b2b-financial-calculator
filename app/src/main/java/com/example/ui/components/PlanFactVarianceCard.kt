@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -143,12 +145,16 @@ fun PlanFactVarianceCard(
                     }
                 }
 
+                Spacer(modifier = Modifier.width(8.dp))
+
                 // Quick Import from Deal
                 OutlinedButton(
                     onClick = { viewModel.importPlanFromCurrentDeal() },
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    modifier = Modifier.height(32.dp).testTag("btn_import_plan_deal")
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier
+                        .heightIn(min = 36.dp)
+                        .testTag("btn_import_plan_deal")
                 ) {
                     Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(13.dp), tint = EmeraldPrimary)
                     Spacer(modifier = Modifier.width(4.dp))
@@ -156,7 +162,9 @@ fun PlanFactVarianceCard(
                         text = if (isRu) "План из сделки" else "From Deal",
                         fontSize = 11.sp,
                         color = EmeraldPrimary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -382,13 +390,17 @@ fun PlanFactVarianceCard(
                     text = if (isRu) "ФАКТОРНЫЙ МОСТ ОТКЛОНЕНИЙ ПРИБЫЛИ" else "PROFIT VARIANCE BRIDGE",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "${if (planFact.netProfitDelta >= 0) "+" else ""}${viewModel.formatCurrency(planFact.netProfitDelta)}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = statusColor
+                    color = statusColor,
+                    softWrap = false,
+                    maxLines = 1
                 )
             }
 
@@ -449,18 +461,21 @@ fun PlanFactVarianceCard(
                 onClick = { viewModel.applyFactToPnl() },
                 colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
                 shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("btn_apply_fact_to_pnl")
             ) {
                 Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isRu) "Перенести факт в основную модель P&L" else "Apply Actuals to P&L Model",
                     color = Color.Black,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
             }
         }

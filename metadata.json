@@ -1,6 +1,6 @@
 {
   "name": "NotaBigDeal",
-  "description": "Executive BDM & KAM financial modeler, SaaS economics, payment schedules, and PDF reports.",
+  "description": "Enterprise B2B pricing engine, Net-Net waterfall, NWC & factoring, Plan-Fact bridge, Gemini AI audit/OCR, and PDF/CSV reports.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

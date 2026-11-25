@@ -516,13 +516,17 @@ fun MarginVsMarkupCalculator(
                             text = tr("PRICING IMPACT SIMULATION", "СИМУЛЯЦИЯ ЦЕНЫ"),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "${tr("Selling Price", "Цена")} = ${tr("Cost", "Себест.")} × ${numberFmt.format(currentMultiplier)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = ElectricCyan,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 

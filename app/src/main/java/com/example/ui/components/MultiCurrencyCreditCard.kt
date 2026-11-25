@@ -152,13 +152,17 @@ fun MultiCurrencyCreditCard(
                         text = tr("CURRENCY SELECTION (1 TO 4):", "ВЫБОР ВАЛЮТ (ОТ 1 ДО 4):"),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "${tr("Selected", "Выбрано")}: ${selectedCurrencies.size} ${tr("of", "из")} 4",
                         style = MaterialTheme.typography.labelSmall,
                         color = ElectricCyan,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 
@@ -437,7 +441,10 @@ private fun CurrencyLegCardItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
@@ -459,12 +466,15 @@ private fun CurrencyLegCardItem(
                         fontSize = 10.sp
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Text(
                     text = "${tr("Share", "Доля")}: ${leg.allocationPct}%",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
 

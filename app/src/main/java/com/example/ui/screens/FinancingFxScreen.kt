@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AmortizationScheme
@@ -602,8 +603,10 @@ fun FinancingFxScreen(
                                     text = tr("REPAYMENT SCHEME", "СХЕМА ВЫПЛАТ ПО КРЕДИТУ"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f)
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = if (selectedScheme == AmortizationScheme.ANNUITY)
                                         tr("Equal installments", "Аннуитет: равные платежи")
@@ -611,7 +614,9 @@ fun FinancingFxScreen(
                                         tr("Equal principal (less interest)", "Дифференц: равный долг (меньше переплата)"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = ElectricCyan,
-                                    fontSize = 10.sp
+                                    fontSize = 10.sp,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1.1f)
                                 )
                             }
                             Row(
@@ -1114,7 +1119,10 @@ fun FinancingFxScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.CurrencyExchange,
                                         contentDescription = null,
@@ -1129,6 +1137,7 @@ fun FinancingFxScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(8.dp))
 
                                 Box {
                                     Button(
@@ -1141,7 +1150,9 @@ fun FinancingFxScreen(
                                             text = "$baseCurrency → $targetCurrency ▾",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                     }
 

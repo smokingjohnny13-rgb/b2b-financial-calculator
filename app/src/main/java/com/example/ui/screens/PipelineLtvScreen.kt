@@ -37,6 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.calculator.LtvCalculator
@@ -248,7 +250,10 @@ fun PipelineLtvScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.FilterAlt,
                                 contentDescription = null,
@@ -263,12 +268,15 @@ fun PipelineLtvScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                        Spacer(modifier = Modifier.size(8.dp))
 
                         Text(
                             text = "${tr("Win Rate", "Конверсия")}: ${funnelSummary.overallConversionPct}%",
                             style = MaterialTheme.typography.labelSmall,
                             color = EmeraldPrimary,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 
@@ -288,7 +296,7 @@ fun PipelineLtvScreen(
                             testTag = "input_funnel_leads"
                         )
                         FinancialInputField(
-                            label = tr("MQLs", "MQL (Маркетинг)"),
+                            label = tr("MQLs", "MQL (Марк.)"),
                             value = mqls,
                             onValueChange = {
                                 viewModel.funnelMqls.value = it
@@ -298,7 +306,7 @@ fun PipelineLtvScreen(
                             testTag = "input_funnel_mqls"
                         )
                         FinancialInputField(
-                            label = tr("SQLs", "SQL (Продажи)"),
+                            label = tr("SQLs", "SQL (Прод.)"),
                             value = sqls,
                             onValueChange = {
                                 viewModel.funnelSqls.value = it
@@ -411,48 +419,80 @@ fun PipelineLtvScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.Top
                         ) {
-                            Column {
+                            Column(
+                                modifier = Modifier.weight(1.15f),
+                                horizontalAlignment = Alignment.Start,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 Text(
                                     text = tr("PROJECTED PIPELINE", "ПРОГНОЗ ВЫРУЧКИ"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2
                                 )
                                 Text(
                                     text = viewModel.formatCurrency(funnelSummary.totalPipelineValue),
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = EmeraldPrimary
+                                    color = EmeraldPrimary,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(
+                                modifier = Modifier.weight(0.95f),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 Text(
                                     text = tr("VALUE / LEAD", "ДОХОД / ЛИД"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2
                                 )
                                 Text(
                                     text = viewModel.formatCurrency(revenuePerLead),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = ElectricCyan
+                                    color = ElectricCyan,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 
-                            Column(horizontalAlignment = Alignment.End) {
+                            Column(
+                                modifier = Modifier.weight(0.95f),
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 Text(
                                     text = tr("CONVERSION YIELD", "ИТОГОВАЯ КОНВЕРСИЯ"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.End,
+                                    maxLines = 2
                                 )
                                 Text(
                                     text = "${funnelSummary.overallConversionPct}% ${tr("Overall", "Итого")}",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }

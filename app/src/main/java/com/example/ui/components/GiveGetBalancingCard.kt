@@ -395,7 +395,10 @@ fun GiveGetBalancingCard(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Star,
                                         contentDescription = null,
@@ -411,6 +414,7 @@ fun GiveGetBalancingCard(
                                         fontSize = 11.sp
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(4.dp))
@@ -421,7 +425,9 @@ fun GiveGetBalancingCard(
                                         text = tr("RECOMMENDED", "РЕКОМЕНДОВАНО"),
                                         fontSize = 8.5.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = EmeraldPrimary
+                                        color = EmeraldPrimary,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
@@ -503,7 +509,10 @@ fun GiveGetBalancingCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.FormatQuote,
                                 contentDescription = null,

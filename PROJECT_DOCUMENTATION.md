@@ -11,15 +11,15 @@
 ---
 
 ### 2. Технологический стек и архитектура
-- **Платформа:** Android (API 26+), 100% Kotlin (2.2.10).
+- **Платформа:** Android (API 26+, targetSdk 35, compileSdk 36), 100% Kotlin (2.2.10).
 - **UI Framework:** Jetpack Compose (Declarative UI) в стиле **Material Design 3 (M3)** с двойной темой (*Obsidian Executive Dark* и *Nordic Light Slate*), фирменными акцентами *Emerald Primary* (`#10B981`), *Electric Cyan* (`#06B6D4`) и *Gold Accent* (`#F59E0B`).
-- **Архитектура:** Clean Architecture + MVVM (`BigDealViewModel` + `StateFlow` + реактивные потоки данных).
+- **Архитектура:** Модульный Clean MVVM + ручной DI-контейнер `AppContainer` (`BigDealViewModel` выступает тонким фасадом над `DealSessionState`, `FinancingController`, `PricingMarginController`, `WorkingCapitalController`, `KamAndVaultController` и `AiAndExportDelegate`).
 - **AI и компьютерное зрение (Dual-Core):**
   - **Gemini 3.8 Flash** через Firebase AI Logic: экспресс-аудит рисков сделки и мультимодальный OCR-сканер коммерческих документов (камера / Android Photo Picker);
   - **Детерминированный офлайн-аудитор (0ms):** гарантированный локальный скоринг рисков и рекомендаций при отсутствии сети.
 - **Хранение данных и бэкенд:**
-  - Firebase Authentication (Google Sign-In via Credential Manager);
-  - Cloud Firestore с автоматической фоновой двусторонней синхронизацией сделок и План-Факта (`DealRepository`);
+  - Firebase Authentication (Google Sign-In via Credential Manager) + Firebase App Check;
+  - Cloud Firestore с автоматической двусторонней синхронизацией сделок, План-Факта (`DealRepository`, `users/{uid}/deals`) и профилей клиентов (`ClientNegotiationRepository`, `users/{uid}/clients`);
   - Offline-first архитектура с сохранением локального состояния.
 - **Экспорт документов:**
   - Встроенный генератор векторных документов `PdfExportService` (2-страничный отчёт A4 + одностраничный LinkedIn Product Flyer);
@@ -157,10 +157,12 @@
 ```
 app/src/main/java/com/example/
 ├── MainActivity.kt                      # Корневой экран, TopAppBar, AI-аудит, OCR, ∑ Глоссарий, ⚡ КАМ
+├── di/
+│   └── AppContainer.kt                  # Единая ручная фабрика зависимостей без оверхеда Hilt/KSP
 ├── data/
-│   ├── ai/                              # CommercialDocumentOcrService & AI Deal Auditor (Gemini 3.8 Flash)
-│   ├── model/                           # SavedDeal (вкл. Plan-Fact), AmortizationSummary, LandedCost, PnlModel
-│   └── repository/                      # AuthRepository & DealRepository (Firestore + Cache + Credential Manager)
+│   ├── ai/                              # AiDealRiskAuditor & CommercialOcrScanner (Gemini 3.8 Flash + 0ms fallback)
+│   ├── model/                           # SavedDeal (вкл. Plan-Fact), ClientNegotiationProfile, AmortizationSummary, PnlModel
+│   └── repository/                      # AuthRepository, DealRepository & ClientNegotiationRepository (Firestore + Cache)
 ├── domain/
 │   ├── calculator/
 │   │   ├── AmortizationEngine.kt        # Кредиты, грейс-периоды, досрочное погашение, плавающие ставки, IRR
@@ -213,9 +215,17 @@ app/src/main/java/com/example/
 │   ├── i18n/
 │   │   └── I18n.kt                      # Модуль мультиязычности (EN / RU)
 │   └── viewmodel/
-│       └── BigDealViewModel.kt          # Главная ViewModel со всеми реактивными StateFlow
+│       ├── BigDealViewModel.kt          # Тонкий фасад ViewModel, связывающий контроллеры через конструктор
+│       ├── DealSessionState.kt          # Единый контейнер контекста сделки, валют, языка, темы и событий UI
+│       ├── FinancingController.kt       # Графики амортизации, грейс-периоды, досрочное погашение, мультивалютный кредит
+│       ├── PricingMarginController.kt   # Себестоимость FOB/Landed, Margin/Markup Solver, Водопад цен и Промо
+│       ├── WorkingCapitalController.kt  # Воронка/LTV, P&L/ROI, Торнадо, Отсрочка, Кассовый разрыв, FX и ROIC
+│       ├── KamAndVaultController.kt     # План-Факт, Коридор КАМ/SLA, Give-Get, Коммерческий аналитик, Клиенты и Сейф
+│       └── AiAndExportDelegate.kt       # Делегат экспресс AI-аудита, OCR-сканера и экспорта PDF/CSV
 ├── util/
-│   └── NumberUtils.kt                   # Устойчивый локализованный парсинг чисел (запятая/точка)
+│   ├── AppCheckUtil.kt                  # Инициализация Firebase App Check (Play Integrity / Debug)
+│   ├── NumberUtils.kt                   # Устойчивый локализованный парсинг чисел (запятая/точка)
+│   └── PdfImageLoader.kt                # Безопасная загрузка изображений для OCR с проверкой URI
 └── service/
     ├── PdfExportService.kt              # Генерация 2-страничного PDF КП (вкл. План-Факт) и LinkedIn Flyer
     └── CsvExportService.kt              # Экспорт в Excel/CSV (UTF-8 BOM) модели сделки и реестра Deal Vault
@@ -237,6 +247,15 @@ app/src/main/java/com/example/
     - Точная 5-факторная декомпозиция $\Delta \text{Net Profit} = \text{Volume} + \text{Price} + \text{Cost} + \text{DSO} - \text{Penalties}$ на вкладке P&L.
     - Интеграция с **PDF** (Секция 9 на 2-й странице), **Excel/CSV** (Секция 5), **офлайн-глоссарием формул (`∑`)** (`plan_fact_variance`) и **Deal Vault / Firestore** (сохранение и восстановление всех 10 параметров План-Факта внутри `SavedDeal`).
 
+#### Этап 9. Финальный подписанный релиз (`v1.4.0`), модульный рефакторинг и облачная CRM
+29. **Модульная декомпозиция и ручной DI (`AppContainer`):**
+    - `BigDealViewModel` разделён на `DealSessionState`, `FinancingController`, `PricingMarginController`, `WorkingCapitalController`, `KamAndVaultController` и `AiAndExportDelegate`, с единым `AppContainer` без KSP-накладных расходов.
+30. **Облачная синхронизация клиентов (`ClientNegotiationRepository`):**
+    - Полный перенос базы контрагентов и истории раундов переговоров в Firestore (`users/{uid}/clients/{clientId}`) с валидацией схемы в `firestore.rules`.
+31. **Финальный подписанный релиз (`v1.4.0`), безопасность и UI-полировка:**
+    - Релизная сборка (`NotaBigDeal-v1.4.0.apk`) через `.github/workflows/build-apk.yml` с R8/ProGuard (`isMinifyEnabled = true`, `isShrinkResources = true`), подписью релизным ключом (`release.jks`), App Check, редакцией PII в логах, санитизацией OCR/CSV и адаптивной вёрсткой кнопок/сводок на русском и английском языках (проверена на физическом устройстве).
+    - Финальный релиз: https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0
+
 ---
 
 ### 5. Лицензирование (Dual-Licensing / AGPLv3)
@@ -247,11 +266,13 @@ app/src/main/java/com/example/
 ---
 
 ### 6. Руководство по проверке и тестированию
-- Запуск тестов: `gradle :app:testDebugUnitTest` (76 пройденных юнит-тестов + 1 skipped Robolectric, 0 ошибок):
+- Запуск JVM-тестов: `gradle :app:testDebugUnitTest` (**82 пройденных теста**, 0 ошибок):
   - `KamAndCommercialAnalystTest` — тесты коридора BATNA, штрафов SLA, trade-off и корзины SKU;
   - `BigDealCalculatorsTest` — тесты LTV/CAC, амортизации, водопада цен, кассового разрыва, FX стресс-теста и ROIC;
   - `FinancialArchitectureOptimizationsTest` — тесты двухставочного грейс-периода, досрочного погашения, факторинга P2, Tornado, Plan-Fact моста и локализованного ввода;
   - `CsvExportServiceTest` — тесты RFC 4180 экранирования, 5 секций CSV (включая План-Факт), реестра Deal Vault и глоссария формул (`plan_fact_variance`);
   - `MarginVsMarkupTest` — тесты взаимосвязи маржи и наценки;
-  - `LandedCostCalculatorTest` — тесты прямого и реверсивного расчета FOB и профилей стран.
+  - `LandedCostCalculatorTest` — тесты прямого и реверсивного расчета FOB и профилей стран;
+  - Тесты контроллеров, безопасности, санитизации OCR и числовых парсеров.
+- Запуск тестов правил безопасности Firestore: `firebase emulators:exec --only firestore "node --test firestore.test.js"` (**6 пройденных тестов**, 0 ошибок).
 - Проверка компиляции: `compile_applet`.

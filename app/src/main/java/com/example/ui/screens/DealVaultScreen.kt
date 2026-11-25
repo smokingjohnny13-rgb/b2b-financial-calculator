@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -58,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -202,7 +204,10 @@ fun DealVaultScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = if (currentUser != null) Icons.Default.CloudDone else Icons.Default.Cloud,
                                 contentDescription = null,
@@ -217,6 +222,7 @@ fun DealVaultScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
 
                         if (isSyncing) {
                             CircularProgressIndicator(
@@ -239,7 +245,9 @@ fun DealVaultScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (currentUser != null) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -285,26 +293,32 @@ fun DealVaultScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = currentUser?.displayName ?: tr("Executive Account", "Аккаунт руководителя"),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = currentUser?.email ?: "",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             OutlinedButton(
                                 onClick = { viewModel.signOut() },
                                 shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                             ) {
-                                Text(tr("Sign Out", "Выйти"), fontSize = 11.sp)
+                                Text(tr("Sign Out", "Выйти"), fontSize = 11.sp, maxLines = 1, softWrap = false)
                             }
                         }
                     }
@@ -368,7 +382,10 @@ fun DealVaultScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.PictureAsPdf,
                                 contentDescription = null,
@@ -380,14 +397,26 @@ fun DealVaultScreen(
                                 text = tr("EXECUTIVE PROPOSAL EXPORT", "ЭКСПОРТ КОММЕРЧЕСКОГО ПРЕДЛОЖЕНИЯ"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = EmeraldPrimary,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        Text(
-                            text = "A4 Vector PDF",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "A4 Vector PDF",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
                     }
 
                     Column {
@@ -406,14 +435,17 @@ fun DealVaultScreen(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(
                             onClick = { viewModel.exportPdf(context) },
                             colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
                             shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
                             modifier = Modifier
-                                .weight(1.3f)
+                                .weight(1.25f)
+                                .heightIn(min = 48.dp)
                                 .testTag("btn_export_pdf")
                         ) {
                             Icon(
@@ -427,7 +459,9 @@ fun DealVaultScreen(
                                 text = tr("Export & Share PDF", "Экспорт и отправка PDF"),
                                 color = Color.Black,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                                fontSize = 12.sp,
+                                lineHeight = 15.sp,
+                                maxLines = 2
                             )
                         }
 
@@ -438,8 +472,10 @@ fun DealVaultScreen(
                                 showSaveDialog = true
                             },
                             shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
                             modifier = Modifier
                                 .weight(1f)
+                                .heightIn(min = 48.dp)
                                 .testTag("btn_save_scenario")
                         ) {
                             Icon(
@@ -448,7 +484,13 @@ fun DealVaultScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(tr("Save Model", "Сохранить"), fontSize = 12.sp)
+                            Text(
+                                text = tr("Save Model", "Сохранить"),
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
 
@@ -501,7 +543,10 @@ fun DealVaultScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Campaign,
                                 contentDescription = null,
@@ -513,21 +558,26 @@ fun DealVaultScreen(
                                 text = tr("LINKEDIN PRODUCT FLYER", "РЕКЛАМНАЯ ЛИСТОВКА LINKEDIN"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = ElectricCyan,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(ElectricCyan.copy(alpha = 0.15f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
                                 text = tr("ONE-PAGER PDF", "ПДФ ЛИСТОВКА"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = ElectricCyan,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -586,10 +636,12 @@ fun DealVaultScreen(
                     text = "${tr("SAVED DEAL SCENARIOS", "СОХРАНЕННЫЕ СДЕЛКИ")} (${savedDeals.size})",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
 
                 if (savedDeals.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     TextButton(
                         onClick = { viewModel.exportVaultRegistryCsv(context) },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
@@ -606,7 +658,9 @@ fun DealVaultScreen(
                             text = tr("Export CSV Registry", "Выгрузить реестр в CSV"),
                             color = ElectricCyan,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }

@@ -12,12 +12,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -57,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -271,16 +274,18 @@ private fun AuditIdleView(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .heightIn(min = 50.dp)
                     .testTag("run_express_audit_btn")
             ) {
                 Icon(Icons.Default.AutoAwesome, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = tr("AI Audit (Gemini 3.8 Flash)", "Запустить AI-аудит (Gemini 3.8 Flash)"),
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -289,9 +294,10 @@ private fun AuditIdleView(
             OutlinedButton(
                 onClick = onStartLocal,
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("run_local_audit_btn")
             ) {
                 Icon(Icons.Default.Bolt, contentDescription = null, tint = ElectricCyan)
@@ -299,7 +305,8 @@ private fun AuditIdleView(
                 Text(
                     text = tr("Instant Offline Audit (0 ms)", "Мгновенный офлайн-аудит (0 мс)"),
                     fontWeight = FontWeight.SemiBold,
-                    color = ElectricCyan
+                    color = ElectricCyan,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -386,11 +393,15 @@ private fun AuditErrorView(
                 onClick = onRunLocal,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth(0.85f).height(46.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth(0.85f).heightIn(min = 48.dp)
             ) {
                 Icon(Icons.Default.Bolt, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(tr("Run Offline Audit", "Запустить офлайн-аудит"))
+                Text(
+                    text = tr("Run Offline Audit", "Запустить офлайн-аудит"),
+                    textAlign = TextAlign.Center
+                )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -398,11 +409,15 @@ private fun AuditErrorView(
             OutlinedButton(
                 onClick = onRetry,
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth(0.85f).height(44.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.fillMaxWidth(0.85f).heightIn(min = 48.dp)
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(tr("Retry Cloud AI (Gemini 3.8)", "Повторить через Gemini"))
+                Text(
+                    text = tr("Retry Cloud AI (Gemini 3.8)", "Повторить через Gemini"),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
