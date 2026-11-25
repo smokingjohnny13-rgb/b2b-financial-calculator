@@ -13,7 +13,7 @@ android {
   compileSdk = 35
 
   defaultConfig {
-    applicationId = "com.example"
+    applicationId = "com.aistudio.bigdeal.xvrkqp"
     minSdk = 26
     targetSdk = 35
 
