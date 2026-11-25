@@ -2,6 +2,7 @@
 
 [![Platform](https://img.shields.io/badge/Платформа-Android%208.0%2B%20(API%2026--35%2C%20compileSdk%2036)-green.svg)](https://developer.android.com)
 [![Release](https://img.shields.io/badge/Релиз-Signed%20APK%20v1.4.0-10B981.svg)](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0)
+[![AlternativeTo](https://img.shields.io/badge/AlternativeTo-NotaBigDeal-00AEEF.svg)](https://alternativeto.net/software/notabigdeal/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/Интерфейс-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
 [![Tests](https://img.shields.io/badge/Тесты-82%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
@@ -264,6 +265,7 @@ com.example
 ### Финальный подписанный релиз (`v1.4.0`)
 Финальная релизная сборка (`NotaBigDeal-v1.4.0.apk`) подписана ключами подписи релиза в CI/CD, проверена на реальном Android-устройстве и подготовлена к промышленной эксплуатации:
 - **Скачать релиз**: файл **`NotaBigDeal-v1.4.0.apk`** доступен в **[GitHub Release v1.4.0](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0)**;
+- **Каталог и скачивание**: официальная страница приложения на **[AlternativeTo](https://alternativeto.net/software/notabigdeal/)**;
 - **CI/CD конвейер**: автоматический релизный пайплайн (`.github/workflows/build-apk.yml`) по тегам `v*` / `V*` собирает и прикладывает подписанный APK (`assembleRelease`);
 - **Защита и оптимизация**: включены R8/ProGuard-обфускация и сжатие ресурсов (`isMinifyEnabled = true`, `isShrinkResources = true`), проверка подлинности через Firebase App Check, очистка PII из релизных логов и защита экрана от скриншотов (`FLAG_SECURE`).
 
@@ -312,6 +314,7 @@ firebase emulators:exec --only firestore "node --test firestore.test.js"
 Разработано для коммерческих директоров, Key Account Managers и финансовых аналитиков.
 
 - **Репозиторий и релиз GitHub (`v1.4.0`)**: [github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0)
+- **AlternativeTo (скачивание и отзывы)**: [alternativeto.net/software/notabigdeal/](https://alternativeto.net/software/notabigdeal/)
 - **LinkedIn (вопросы коммерческого лицензирования)**: [www.linkedin.com/in/snitkor](https://www.linkedin.com/in/snitkor)
 - **Название приложения**: **NotaBigDeal** (`v1.4.0` Signed Release)
 - **Лицензия**: Dual-Licensed — [GNU AGPLv3](LICENSE) / Commercial License (см. [NOTICE](NOTICE))

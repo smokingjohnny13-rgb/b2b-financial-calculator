@@ -2,6 +2,7 @@
 
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--35%2C%20compileSdk%2036)-green.svg)](https://developer.android.com)
 [![Release](https://img.shields.io/badge/Release-Signed%20APK%20v1.4.0-10B981.svg)](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0)
+[![AlternativeTo](https://img.shields.io/badge/AlternativeTo-NotaBigDeal-00AEEF.svg)](https://alternativeto.net/software/notabigdeal/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
 [![Tests](https://img.shields.io/badge/Tests-82%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
@@ -264,6 +265,7 @@ com.example
 ### Signed Final Release (`v1.4.0`)
 The production release (`NotaBigDeal-v1.4.0.apk`) is signed with release keys via GitHub Actions, verified on a physical Android device, and hardened for deployment:
 - **Download**: Get **`NotaBigDeal-v1.4.0.apk`** from **[GitHub Release v1.4.0](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0)**;
+- **App Directory & Reviews**: Official page on **[AlternativeTo](https://alternativeto.net/software/notabigdeal/)**;
 - **CI/CD Pipeline**: Automated release workflow (`.github/workflows/build-apk.yml`) triggered on `v*` / `V*` tags builds a key-signed release APK (`assembleRelease`);
 - **Release Hardening**: R8/ProGuard code obfuscation and resource shrinking (`isMinifyEnabled = true`, `isShrinkResources = true`), Firebase App Check integration, release-build PII log redaction, and `FLAG_SECURE` executive privacy lock.
 
@@ -312,6 +314,7 @@ firebase emulators:exec --only firestore "node --test firestore.test.js"
 Developed for commercial directors, enterprise Key Account Managers, and financial analysts.
 
 - **GitHub Repository & Release (`v1.4.0`)**: [github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.0)
+- **AlternativeTo (Download & Community Page)**: [alternativeto.net/software/notabigdeal/](https://alternativeto.net/software/notabigdeal/)
 - **LinkedIn (Commercial Licensing & Inquiries)**: [www.linkedin.com/in/snitkor](https://www.linkedin.com/in/snitkor)
 - **App Name**: **NotaBigDeal** (`v1.4.0` Signed Release)
 - **License**: Dual-Licensed — [GNU AGPLv3](LICENSE) / Commercial License (see [NOTICE](NOTICE))
