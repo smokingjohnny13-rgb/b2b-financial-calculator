@@ -3,8 +3,8 @@
 [![Platform](https://img.shields.io/badge/Платформа-Android%208.0%2B%20(API%2026%2B)-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/Интерфейс-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Тесты-72%20Пройдено%20(100%25)-brightgreen.svg)]()
-[![Архитектура](https://img.shields.io/badge/Архитектура-Clean%20%2B%20MVVM%20%2B%20Offline--First-orange.svg)]()
+[![Tests](https://img.shields.io/badge/Тесты-82%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
+[![Архитектура](https://img.shields.io/badge/Архитектура-Модульный%20MVVM%20%2B%20AppContainer%20DI-orange.svg)]()
 [![AI Движок](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200мс%20Офлайн-blueviolet.svg)]()
 [![Отчеты](https://img.shields.io/badge/Отчеты-2--стр.%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
 [![License: AGPL v3](https://img.shields.io/badge/Лицензия-AGPLv3%20%2F%20Commercial-blue.svg)](LICENSE)
@@ -154,11 +154,11 @@ $$\text{Volume Lift}\% = \frac{d\%}{\text{Gross Margin}\% - d\%} \times 100\%$$
 - Сопоставление номинальной маржи договора с реальной «карманной».
 
 ### 10. История переговоров и карточка клиента (Vault)
-База контрагентов с облачной синхронизацией:
+База контрагентов с облачной синхронизацией в Firestore (`users/{uid}/clients/{clientId}`):
 - Фиксация согласованных лимитов скидок, порогов бонусов и отсрочек;
 - Хронологический журнал раундов переговоров;
 - Применение условий клиента в активную сделку в 1 клик;
-- Резервное копирование в Firestore.
+- Полный CRUD с real-time синхронизацией в Firestore и безопасной офлайн-работой.
 
 ### 11. Двухстраничный PDF-отчет и презентационная листовка для LinkedIn
 Генерация векторных PDF-документов прямо на устройстве:
@@ -216,33 +216,45 @@ $$\text{Volume Lift}\% = \frac{d\%}{\text{Gross Margin}\% - d\%} \times 100\%$$
 
 ---
 
-## Архитектура и качество кода
+## Архитектура, безопасность и качество кода
 
 ```
 com.example
+├── di
+│   └── AppContainer.kt          # Легкая ручная фабрика DI (без накладных расходов Hilt/KSP)
 ├── data
-│   ├── ai           # AI-аудитор и мультимодальный OCR-сканер (Firebase AI Logic + офлайн)
-│   ├── model        # Иммутабельные модели данных Kotlin (SavedDeal, Amortization, LandedCost)
-│   └── repository   # AuthRepository и DealRepository (Firestore + Cache + Credential Manager)
+│   ├── ai                       # AiDealRiskAuditor и CommercialOcrScanner (Firebase AI Logic + офлайн-ядро)
+│   ├── model                    # Иммутабельные модели Kotlin (SavedDeal, ClientNegotiationProfile, Amortization)
+│   └── repository               # AuthRepository (Credential Manager), DealRepository и ClientNegotiationRepository (Firestore)
 ├── domain
-│   ├── calculator   # Чистые финансовые движки (CashGap, GiveGet, Tornado, Waterfall, PnL, Amortization, PlanFact)
-│   └── model        # Справочник формул (офлайн-определения и переговорные подсказки)
-├── service          # Экспорт: PdfExportService (2-стр. PDF) и CsvExportService (Excel/CSV BOM)
-├── util             # NumberUtils (безопасный парсинг чисел с поддержкой запятых)
+│   ├── calculator               # Чистые финансовые движки (CashGap, GiveGet, Tornado, Waterfall, PnL, Amortization, PlanFact)
+│   └── model                    # Справочник формул (офлайн-определения и переговорные подсказки)
+├── service                      # Экспорт: PdfExportService (2-стр. PDF) и CsvExportService (Excel/CSV BOM)
+├── util                         # AppCheckUtil, NumberUtils (парсинг с запятыми), PdfImageLoader (проверка URI)
 └── ui
-    ├── components   # Модульные карточки Material 3 (PlanFactVarianceCard, CommercialOcrDialog, Tornado, GiveGet)
-    ├── screens      # 6 экранов (Маржа, Финансы, Воронка, Импорт, Сейф, Аналитика)
-    ├── theme        # Темная тема Obsidian Executive и светлая Nordic Slate
-    └── viewmodel    # BigDealViewModel (реактивные StateFlow и корутины)
+    ├── components               # Модульные карточки Material 3 (PlanFactVarianceCard, CommercialOcrDialog, Tornado, GiveGet)
+    ├── screens                  # 6 экранов (Маржа, Финансы, Воронка, Импорт, Сейф, Аналитика)
+    ├── theme                    # Темная тема Obsidian Executive и светлая Nordic Slate
+    └── viewmodel                # Тонкий фасад BigDealViewModel + DealSessionState и 5 фича-контроллеров/делегатов
+        ├── DealSessionState         # Контекст текущей сделки, валюты, язык/тема/приватность и шина уведомлений
+        ├── FinancingController      # Графики амортизации, грейс-периоды, досрочное погашение, мультивалютный кредит
+        ├── PricingMarginController  # Себестоимость FOB/Landed, Margin/Markup Solver, Водопад цен и Промо
+        ├── WorkingCapitalController # Воронка/LTV, P&L/ROI, Торнадо, Условия оплаты, Кассовый разрыв, FX и ROIC
+        ├── KamAndVaultController    # План-Факт, Коридор КАМ/SLA, Give-Get, Коммерческий аналитик, Клиенты и Сейф
+        └── AiAndExportDelegate      # Экспресс AI-аудит, OCR-сканер документов и экспорт PDF/CSV
 ```
 
-- **Clean Architecture и MVVM**: однонаправленный поток данных, чистые математические функции в `domain/calculator/` без зависимостей от Android SDK;
+- **Модульный MVVM и ручной DI (`AppContainer`)**: единый контейнер `AppContainer` собирает репозитории и AI-сервисы; `BigDealViewModel` выступает тонким фасадом над 6 специализированными контроллерами, а чистые калькуляторы в `domain/calculator/` полностью изолированы от Android SDK;
+- **Безопасность и Zero-Trust облако**:
+  - Строгие правила Firestore (`users/{uid}/deals` и `users/{uid}/clients`) с проверкой схемы и владельца, Google Sign-In через `CredentialManager` и Firebase App Check;
+  - Режим приватности экрана (`FLAG_SECURE`) с блокировкой скриншотов и превью в недавних приложениях;
+  - Редакция PII в релизных логах, санитизация OCR-данных и защита CSV от формульных инъекций;
 - **Надежный ввод чисел**: функции `toCleanDouble()` и `toCleanInt()` корректно обрабатывают запятые (`12,5`) и пробелы во всех 100+ полях ввода;
 - **Двойная тема Material Design 3 (M3)**:
   - **Obsidian Executive Dark**: ночная палитра (`#0B101D`) с изумрудными акцентами (`#10B981`) для комфортной работы в темных помещениях;
   - **Nordic Light Slate**: мягкая дневная палитра (`#F4F6F9`) для презентаций на проекторах;
 - **Нулевые внешние библиотеки для PDF и Excel**: чистый нативный Canvas и прямой байтовый поток без раздувания APK и утечек памяти;
-- **Автоматизированное тестирование**: 72 unit-теста, проверяющие математику, графики платежей, арбитраж факторинга, досрочное погашение и мост план-факт.
+- **Автоматизированное тестирование**: 82 JVM unit-теста (математика, контроллеры, амортизация, факторинг, OCR, CSV и План-Факт) плюс 6 тестов правил безопасности Firestore в эмуляторе.
 
 ---
 
@@ -261,11 +273,12 @@ gradle assembleDebug
 ```
 
 ### Запуск тестов
-Прогон автоматизированных тестов математики и краевых условий:
+Прогон JVM-тестов финансовой логики и эмуляторных тестов правил Firestore:
 ```bash
 gradle :app:testDebugUnitTest
+firebase emulators:exec --only firestore "node --test firestore.test.js"
 ```
-*(72 unit-теста, 100% успешно)*.
+*(82 unit-теста + 6 тестов правил Firestore, 100% успешно)*.
 
 ---
 

@@ -3,8 +3,8 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-green.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Tests-72%20Passed%20(100%25)-brightgreen.svg)]()
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2B%20MVVM%20%2B%20Offline--First-orange.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-82%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
+[![Architecture](https://img.shields.io/badge/Architecture-Modular%20MVVM%20%2B%20AppContainer%20DI-orange.svg)]()
 [![AI Engine](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200ms%20Offline-blueviolet.svg)]()
 [![Reports](https://img.shields.io/badge/Reports-2--Page%20Vector%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPLv3%20%2F%20Commercial-blue.svg)](LICENSE)
@@ -154,11 +154,11 @@ Simulates net pocket margin after supermarket logistics deductions:
 - Exposes actual "Pocket Margin" versus theoretical contract margin.
 
 ### 10. Client Negotiation History & Account CRM (Vault)
-Enterprise counterparty database with multi-device cloud synchronization:
+Enterprise counterparty database with multi-device Firestore cloud synchronization (`users/{uid}/clients/{clientId}`):
 - Tracks agreed discount caps, volume tiers, payment deferrals, and currency settings;
 - Historical contract log and chronological multi-round negotiation ledger;
 - 1-click **"Apply Client Terms"** workflow into active deal calculations;
-- Full CRUD operations with Firestore cloud backup.
+- Full CRUD operations with real-time Firestore snapshot sync and safe offline fallback.
 
 ### 11. Boardroom 2-Page Vector PDF Deal Proposal & LinkedIn Product Flyer
 Generates publication-quality vector PDF documents on-device via native `android.graphics.pdf.PdfDocument`:
@@ -216,33 +216,45 @@ Deconstructs contract performance variance between planned underwriting and actu
 
 ---
 
-## Technical Architecture & Code Quality
+## Technical Architecture, Security & Code Quality
 
 ```
 com.example
+├── di
+│   └── AppContainer.kt          # Lightweight manual DI factory (zero Hilt/KSP build overhead)
 ├── data
-│   ├── ai           # AI Deal Risk Auditor & Multimodal Commercial OCR Scanner (Firebase AI Logic)
-│   ├── model        # Immutable Kotlin Data Models (SavedDeal, AmortizationSummary, LandedCost)
-│   └── repository   # AuthRepository & DealRepository (Firestore + Cache + Credential Manager)
+│   ├── ai                       # AiDealRiskAuditor & CommercialOcrScanner (Firebase AI Logic + 0ms fallback)
+│   ├── model                    # Immutable Kotlin Data Models (SavedDeal, ClientNegotiationProfile, Amortization)
+│   └── repository               # AuthRepository (Credential Manager), DealRepository & ClientNegotiationRepository (Firestore)
 ├── domain
-│   ├── calculator   # Pure Domain Math Engines (CashGap, GiveGet, Tornado, Waterfall, PnL, Amortization, PlanFact)
-│   └── model        # Financial Formula Glossary (Offline Definitions & KAM Tips)
-├── service          # Export Engines: PdfExportService (2-Page Vector PDF) & CsvExportService (UTF-8 BOM)
-├── util             # NumberUtils (Safe localized decimal parsing for comma/dot keyboards)
+│   ├── calculator               # Pure Domain Math Engines (CashGap, GiveGet, Tornado, Waterfall, PnL, Amortization, PlanFact)
+│   └── model                    # Financial Formula Glossary (Offline Definitions & KAM Tips)
+├── service                      # Export Engines: PdfExportService (2-Page Vector PDF) & CsvExportService (UTF-8 BOM)
+├── util                         # AppCheckUtil, NumberUtils (localized decimals), PdfImageLoader (URI guard)
 └── ui
-    ├── components   # Modular Material 3 Cards (PlanFactVarianceCard, CommercialOcrDialog, Tornado, GiveGet)
-    ├── screens      # 6 Root Screens (Margin, Financing, Pipeline, Landed, Vault, Analytics)
-    ├── theme        # Obsidian Executive Dark & Nordic Light Slate (Dynamic Tokens)
-    └── viewmodel    # BigDealViewModel (Reactive StateFlow, Safe Decimals & Coroutines)
+    ├── components               # Modular Material 3 Cards (PlanFactVarianceCard, CommercialOcrDialog, Tornado, GiveGet)
+    ├── screens                  # 6 Root Screens (Margin, Financing, Pipeline, Landed, Vault, Analytics)
+    ├── theme                    # Obsidian Executive Dark & Nordic Light Slate (Dynamic Tokens)
+    └── viewmodel                # Thin BigDealViewModel facade + DealSessionState & 5 Feature Controllers/Delegates
+        ├── DealSessionState         # Active deal context, currency conversion, theme/language/privacy state & event bus
+        ├── FinancingController      # Loan amortization, grace periods, early prepayment, multi-currency debt basket
+        ├── PricingMarginController  # FOB/Landed Cost, Margin/Markup Solver, Price Waterfall & Promo Break-Even
+        ├── WorkingCapitalController # Funnel/LTV, P&L/ROI, Tornado, Payment Terms, Cash Gap, FX Stress & Hurdle ROIC
+        ├── KamAndVaultController    # Plan-Fact, KAM Corridor/SLA, Give-Get, Commercial Analyst, Clients & Deal Vault
+        └── AiAndExportDelegate      # Gemini Express Risk Audit, Commercial OCR Scanner & PDF/CSV Export orchestration
 ```
 
-- **Clean Architecture & MVVM**: Unidirectional data flow with pure mathematical engines in `domain/calculator/` completely decoupled from Android framework dependencies;
+- **Modular Clean MVVM & Manual DI**: `AppContainer` wires repositories and AI delegates once; `BigDealViewModel` acts as a thin UI-facing facade over 6 focused StateHolders while keeping pure math engines in `domain/calculator/` completely decoupled from Android SDK dependencies;
+- **Zero-Trust Cloud Sync & Security Hardening**:
+  - Owner-isolated schema-validated Firestore rules (`users/{uid}/deals` and `users/{uid}/clients`) backed by Google Sign-In (`CredentialManager`) and Firebase App Check;
+  - `FLAG_SECURE` executive Screen Privacy toggle blocking screenshots and recent-app previews;
+  - Release-build PII log redaction, OCR numeric bounds sanitization, and CSV formula-injection neutralization;
 - **Resilient Localized Number Input**: Custom `toCleanDouble()` and `toCleanInt()` parsers seamlessly handling comma-based decimal inputs (`12,5`) and spaces across 100+ numeric fields;
 - **Material Design 3 (M3) Dual-Theming**:
   - **Obsidian Executive Dark**: Deep midnight palette (`#0B101D`) with emerald accents (`#10B981`) designed to reduce visual fatigue during evening sessions;
   - **Nordic Light Slate**: Soft glare-free paper palette (`#F4F6F9`) with crisp slate typography (`#0F172A`) for boardroom projectors and daylight;
 - **Zero Third-Party PDF/Excel Bloat**: Pure native vector canvas and byte-stream CSV generation with zero external heavy libraries, zero memory leaks, and native `ACTION_SEND` intent sharing;
-- **Comprehensive Unit Testing**: 72 unit tests verifying financial math, amortization schedules, Tornado sensitivities, factoring arbitrage, early repayment, and Plan-Fact variance bridges.
+- **Comprehensive Automated Testing**: 82 JVM unit tests covering financial math, controllers, amortization, Tornado sensitivities, factoring arbitrage, OCR sanitization, and CSV exports, plus 6 Firestore emulator security rule tests.
 
 ---
 
@@ -261,11 +273,12 @@ gradle assembleDebug
 ```
 
 ### Running Automated Verification Tests
-Execute the test suite verifying all financial algorithms, rounding guards, floating rates, and edge cases:
+Execute the JVM test suite and Firestore security rule tests:
 ```bash
 gradle :app:testDebugUnitTest
+firebase emulators:exec --only firestore "node --test firestore.test.js"
 ```
-*(72 unit tests, 100% passing)*.
+*(82 JVM unit tests + 6 Firestore rule tests, 100% passing)*.
 
 ---
 
