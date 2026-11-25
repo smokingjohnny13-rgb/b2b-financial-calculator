@@ -46,12 +46,44 @@
         "planFactPlanDays", "planFactActualPrice", "planFactActualVolume", "planFactActualCost",
         "planFactActualDays", "planFactActualPenalties", "planFactCapitalRate"
       ]
+    },
+    "ClientProfile": {
+      "title": "ClientProfile",
+      "description": "B2B client negotiation profile with agreed terms, rebates, past deals, and round history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique client profile identifier" },
+        "createdBy": { "type": "string", "description": "Authenticated owner Firebase UID" },
+        "name": { "type": "string", "description": "Counterparty or retail chain name" },
+        "industry": { "type": "string", "description": "Industry vertical" },
+        "creditLimit": { "type": "number", "description": "Approved credit limit in standard currency" },
+        "agreedPaymentTermsDays": { "type": "integer", "description": "Standard payment deferral in days" },
+        "standardCurrency": { "type": "string", "description": "ISO currency code" },
+        "standardOnInvoiceDiscountPct": { "type": "number", "description": "Standard front discount %" },
+        "maxAllowedDiscountPct": { "type": "number", "description": "Maximum allowed discount %" },
+        "standardOffInvoiceBonusPct": { "type": "number", "description": "Standard retro bonus %" },
+        "annualVolumeRebatePct": { "type": "number", "description": "Annual volume rebate %" },
+        "notes": { "type": "string", "description": "Account negotiation notes" },
+        "updatedAt": { "type": "integer", "description": "Last modified epoch milliseconds" },
+        "pastDeals": { "type": "array", "description": "Bounded list of historical client deal summaries" },
+        "negotiationHistory": { "type": "array", "description": "Bounded list of negotiation rounds" }
+      },
+      "required": [
+        "id", "createdBy", "name", "industry", "creditLimit", "agreedPaymentTermsDays",
+        "standardCurrency", "standardOnInvoiceDiscountPct", "maxAllowedDiscountPct",
+        "standardOffInvoiceBonusPct", "annualVolumeRebatePct", "notes", "updatedAt",
+        "pastDeals", "negotiationHistory"
+      ]
     }
   },
   "firestore": {
     "/users/{userId}/deals/{dealId}": {
       "schema": "#/entities/Deal",
       "description": "User private saved financial deal models and Plan-Fact scenarios"
+    },
+    "/users/{userId}/clients/{clientId}": {
+      "schema": "#/entities/ClientProfile",
+      "description": "User private B2B client negotiation profiles and negotiation history"
     }
   }
 }

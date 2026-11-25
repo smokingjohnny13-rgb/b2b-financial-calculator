@@ -204,3 +204,93 @@ test("Denies access to legacy/unlisted collections", async () => {
       .set(validDealPayload(ALICE_UID, "deal_001"))
   );
 });
+
+function validClientPayload(uid = ALICE_UID, id = "client_001") {
+  return {
+    id,
+    createdBy: uid,
+    name: "OmniTech Solutions Inc.",
+    industry: "Enterprise IT",
+    creditLimit: 350000.0,
+    agreedPaymentTermsDays: 30,
+    standardCurrency: "USD",
+    standardOnInvoiceDiscountPct: 5.0,
+    maxAllowedDiscountPct: 10.0,
+    standardOffInvoiceBonusPct: 6.0,
+    annualVolumeRebatePct: 2.5,
+    notes: "Key enterprise account",
+    updatedAt: Date.now(),
+    pastDeals: [],
+    negotiationHistory: [
+      {
+        id: "round_1",
+        roundNumber: 1,
+        dateTimestamp: Date.now(),
+        discountDemandedPct: 6.0,
+        bonusDemandedPct: 5.0,
+        paymentTermsDemandedDays: 30,
+        buyerDemands: "Requested 6% discount",
+        kamCounterOffer: "Locked 5% with 30 days",
+        outcomeStatus: "TERMS_LOCKED",
+      },
+    ],
+  };
+}
+
+test("Authenticated owner can create, read, list, update, and delete a client profile; cross-user & invalid payloads denied", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const clientRef = aliceDb
+    .collection("users")
+    .doc(ALICE_UID)
+    .collection("clients")
+    .doc("client_001");
+
+  await assertSucceeds(clientRef.set(validClientPayload(ALICE_UID, "client_001")));
+  await assertSucceeds(clientRef.get());
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("clients").get()
+  );
+
+  // Update
+  await assertSucceeds(
+    clientRef.set({
+      ...validClientPayload(ALICE_UID, "client_001"),
+      creditLimit: 500000.0,
+    })
+  );
+
+  // Cross-user denied
+  await assertFails(
+    bobDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("clients")
+      .doc("client_001")
+      .get()
+  );
+  await assertFails(
+    bobDb.collection("users").doc(ALICE_UID).collection("clients").get()
+  );
+
+  // Spoofed createdBy & ghost field denied
+  await assertFails(
+    aliceDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("clients")
+      .doc("client_spoof")
+      .set(validClientPayload(BOB_UID, "client_spoof"))
+  );
+  await assertFails(
+    aliceDb
+      .collection("users")
+      .doc(ALICE_UID)
+      .collection("clients")
+      .doc("client_ghost")
+      .set({ ...validClientPayload(ALICE_UID, "client_ghost"), isAdmin: true })
+  );
+
+  await assertSucceeds(clientRef.delete());
+});
+

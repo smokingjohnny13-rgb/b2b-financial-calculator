@@ -227,4 +227,45 @@ class DealApprovalAndScoringTest {
         assertEquals(100.0, waterfall.backBonusPct, 0.01)
         assertEquals(0.0, waterfall.netNetPrice, 0.01)
     }
+
+    @Test
+    fun `test client repository attach deal reset and offline cloud noop`() = kotlinx.coroutines.runBlocking {
+        val repo = ClientNegotiationRepository()
+        val deal = com.example.data.model.SavedDeal(
+            id = "deal-attach-test",
+            title = "Q4 Expansion",
+            clientName = "OmniTech Solutions Inc.",
+            dealValue = 50000.0,
+            marginPct = 35.0
+        )
+        val updated = repo.attachPastDealToClient("client-omnitech-01", deal)
+        assertNotNull(updated)
+        assertEquals("deal-attach-test", updated!!.pastDeals.first().id)
+
+        // When firestore == null (JVM / offline), cloud calls succeed safely as no-op
+        assertTrue(repo.saveClientToCloud(updated).isSuccess)
+        assertTrue(repo.deleteClientFromCloud(updated.id).isSuccess)
+
+        repo.resetToDefaults()
+        assertFalse(repo.clients.value.first { it.id == "client-omnitech-01" }.pastDeals.any { it.id == "deal-attach-test" })
+    }
+
+    @Test
+    fun `test modular session financing and pricing controllers`() {
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
+        val session = com.example.ui.viewmodel.DealSessionState(scope)
+        val financing = com.example.ui.viewmodel.FinancingController(session)
+        val pricing = com.example.ui.viewmodel.PricingMarginController(session)
+
+        financing.principalAmount.value = "200000"
+        financing.updateFinancing()
+        assertTrue(financing.amortization.value.periodicPayment > 0.0)
+        assertTrue(session.convertedDealValue.value > 0.0)
+
+        pricing.fobPriceInput.value = "20000"
+        pricing.updateLandedCostCalculations()
+        pricing.transferLandedCostToMarginSolver()
+        assertTrue(pricing.marginState.value.cost >= 20000.0)
+        assertEquals("12.50", session.formatCleanNum(12.5))
+    }
 }

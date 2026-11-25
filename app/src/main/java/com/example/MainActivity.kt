@@ -92,8 +92,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.data.repository.AuthRepository
-import com.example.data.repository.DealRepository
+import com.example.di.AppContainer
 import com.example.ui.components.CurrencySelectionDialog
 import com.example.ui.components.KamOnePagerDialog
 import com.example.ui.screens.AnalyticsPnlScreen
@@ -128,15 +127,11 @@ class MainActivity : ComponentActivity() {
         configureAppCheck(this, intent)
         enableEdgeToEdge()
 
-        val authRepo = AuthRepository(applicationContext)
-        val dealRepo = DealRepository(applicationContext)
+        val appContainer = AppContainer(applicationContext)
 
         setContent {
             val viewModel: BigDealViewModel = viewModel {
-                BigDealViewModel(
-                    dealRepository = dealRepo,
-                    authRepository = authRepo
-                )
+                appContainer.createBigDealViewModel()
             }
             val isDarkTheme by viewModel.isDarkTheme.collectAsState()
             val isPrivacyMode by viewModel.isPrivacyModeEnabled.collectAsState()

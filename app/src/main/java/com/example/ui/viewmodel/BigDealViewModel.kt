@@ -3,15 +3,20 @@
 package com.example.ui.viewmodel
 
 import android.content.Context
-import android.net.Uri
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import java.util.Locale
+import com.example.data.ai.AiDealRiskAuditor
+import com.example.data.ai.CommercialOcrScanner
+import com.example.data.ai.OcrExtractedDealData
 import com.example.data.model.AmortizationScheme
 import com.example.data.model.AmortizationSummary
 import com.example.data.model.CargoCategory
+import com.example.data.model.ClientNegotiationProfile
 import com.example.data.model.CountryTradeProfile
 import com.example.data.model.CurrencyRate
+import com.example.data.model.DealApprovalStatus
+import com.example.data.model.DealScoringResult
 import com.example.data.model.FunnelSummary
 import com.example.data.model.LandedCostResult
 import com.example.data.model.LtvMetrics
@@ -20,548 +25,291 @@ import com.example.data.model.PaymentFrequency
 import com.example.data.model.PnlModel
 import com.example.data.model.SavedDeal
 import com.example.data.repository.AuthRepository
+import com.example.data.repository.ClientNegotiationRepository
 import com.example.data.repository.DealRepository
-import com.example.domain.calculator.AmortizationEngine
-import com.example.domain.calculator.CurrencyEngine
-import com.example.domain.calculator.FunnelCalculator
-import com.example.domain.calculator.LandedCostCalculator
-import com.example.domain.calculator.LtvCalculator
-import com.example.domain.calculator.MarginMarkupSolver
-import com.example.domain.calculator.PaymentTermsEngine
-import com.example.domain.calculator.PaymentTermsResult
-import com.example.domain.calculator.PnlRoiEngine
-import com.example.domain.calculator.PriceWaterfallEngine
-import com.example.domain.calculator.CurrencyCreditLegInput
-import com.example.domain.calculator.CurrencyCreditLegResult
-import com.example.domain.calculator.MultiCurrencyCreditEngine
-import com.example.domain.calculator.MultiCurrencyCreditResult
-import com.example.domain.calculator.PriceWaterfallResult
-import com.example.domain.calculator.PromoBreakEvenEngine
-import com.example.domain.calculator.PromoBreakEvenResult
-import com.example.domain.calculator.CashGapEngine
-import com.example.domain.calculator.CashGapResult
-import com.example.domain.calculator.FxStressTestEngine
-import com.example.domain.calculator.FxStressTestResult
-import com.example.domain.calculator.HurdleRoicEngine
-import com.example.domain.calculator.HurdleRoicResult
-import com.example.domain.calculator.KamNegotiationEngine
-import com.example.domain.calculator.KamScenarioType
-import com.example.domain.calculator.KamScenario
-import com.example.domain.calculator.KamCorridorResult
-import com.example.domain.calculator.RetailSlaPenaltyResult
-import com.example.domain.calculator.KamOnePagerSummary
-import com.example.domain.calculator.GiveGetEngine
-import com.example.domain.calculator.GiveConcessionType
-import com.example.domain.calculator.GiveGetResult
-import com.example.data.ai.AiDealRiskAuditor
-import com.example.ui.components.AiAuditUiState
-import com.example.domain.calculator.CommercialAnalystEngine
-import com.example.domain.calculator.TradeOffArbitrageResult
 import com.example.domain.calculator.BasketSkuItem
 import com.example.domain.calculator.BlendedBasketResult
-import com.example.domain.calculator.RebateTierSimulationResult
-import com.example.domain.calculator.PlanFactVarianceEngine
+import com.example.domain.calculator.CashGapResult
+import com.example.domain.calculator.CurrencyEngine
+import com.example.domain.calculator.FxStressTestResult
+import com.example.domain.calculator.GiveConcessionType
+import com.example.domain.calculator.GiveGetResult
+import com.example.domain.calculator.HurdleRoicResult
+import com.example.domain.calculator.KamCorridorResult
+import com.example.domain.calculator.KamOnePagerSummary
+import com.example.domain.calculator.KamScenarioType
+import com.example.domain.calculator.PaymentTermsResult
 import com.example.domain.calculator.PlanFactResult
-import com.example.domain.calculator.PlanFactHealthStatus
-import com.example.data.model.ClientNegotiationProfile
-import com.example.data.model.DealApprovalStatus
-import com.example.data.model.DealScoringLevel
-import com.example.data.model.DealScoringResult
-import com.example.data.model.NegotiationTouchpoint
-import com.example.data.repository.ClientNegotiationRepository
-import com.example.domain.calculator.TornadoSensitivityEngine
+import com.example.domain.calculator.PriceWaterfallResult
+import com.example.domain.calculator.PromoBreakEvenResult
+import com.example.domain.calculator.RebateTierSimulationResult
+import com.example.domain.calculator.RetailSlaPenaltyResult
+import com.example.domain.calculator.RoiPnlForecast
 import com.example.domain.calculator.TornadoAnalysisResult
-import com.example.domain.calculator.DealScoringEngine
-import kotlinx.coroutines.flow.combine
-import com.example.service.PdfExportService
-import com.example.service.CsvExportService
+import com.example.domain.calculator.TradeOffArbitrageResult
+import com.example.ui.components.AiAuditUiState
+import com.example.ui.i18n.AppLanguage
 import com.example.util.toCleanDouble
 import com.example.util.toCleanInt
-import android.graphics.Bitmap
-import com.example.data.ai.CommercialOcrScanner
-import com.example.data.ai.OcrExtractedDealData
 import com.google.firebase.auth.FirebaseUser
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
-import com.example.ui.i18n.str
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
+/**
+ * Thin ViewModel facade composing feature-level StateHolder controllers
+ * so all screens and cards keep a single stable entry point without business-logic bloat.
+ */
 class BigDealViewModel(
     private val dealRepository: DealRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val clientRepository: ClientNegotiationRepository = ClientNegotiationRepository(),
+    aiRiskAuditor: AiDealRiskAuditor = AiDealRiskAuditor(),
+    commercialOcrScanner: CommercialOcrScanner = CommercialOcrScanner()
 ) : ViewModel() {
 
-    // Auth & Cloud Sync
+    val session = DealSessionState(viewModelScope)
+    val financing = FinancingController(session)
+    val pricing = PricingMarginController(session)
+    val workingCapital = WorkingCapitalController(
+        session = session,
+        dealDiscountPctProvider = { kamVault.dealApprovalDiscountPct.value.toCleanDouble() ?: 5.0 }
+    )
+    val kamVault: KamAndVaultController = KamAndVaultController(
+        scope = viewModelScope,
+        session = session,
+        dealRepository = dealRepository,
+        clientRepository = clientRepository,
+        fxStressProvider = { workingCapital.fxStressResult.value },
+        cashGapProvider = { workingCapital.cashGapResult.value },
+        hurdleRateProvider = { workingCapital.hurdleCorporateRate.value.toCleanDouble() ?: 20.0 }
+    )
+    val aiExport = AiAndExportDelegate(
+        scope = viewModelScope,
+        session = session,
+        aiRiskAuditor = aiRiskAuditor,
+        commercialOcrScanner = commercialOcrScanner
+    )
+
+    // --- Auth & Cloud Sync ---
     val currentUser: StateFlow<FirebaseUser?> = authRepository.currentUserFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), authRepository.currentUser)
+    val savedDeals: StateFlow<List<SavedDeal>> get() = kamVault.savedDeals
+    val isSyncing: StateFlow<Boolean> get() = kamVault.isSyncing
+    val userMessage: SharedFlow<String> get() = session.userMessage
 
-    val savedDeals: StateFlow<List<SavedDeal>> = dealRepository.deals
-    val isSyncing: StateFlow<Boolean> = dealRepository.isSyncing
+    // --- Session Metadata, Theme, Language & Currencies ---
+    val dealTitle: MutableStateFlow<String> get() = session.dealTitle
+    val clientName: MutableStateFlow<String> get() = session.clientName
+    val selectedCurrency: MutableStateFlow<String> get() = session.selectedCurrency
+    val appLanguage: MutableStateFlow<AppLanguage> get() = session.appLanguage
+    val isDarkTheme: MutableStateFlow<Boolean> get() = session.isDarkTheme
+    val isPrivacyModeEnabled: MutableStateFlow<Boolean> get() = session.isPrivacyModeEnabled
+    val activeCurrency: MutableStateFlow<CurrencyRate> get() = session.activeCurrency
+    val customCurrencies: MutableStateFlow<List<CurrencyRate>> get() = session.customCurrencies
+    val currencyRates: MutableStateFlow<List<CurrencyRate>> get() = session.currencyRates
+    val targetCurrency: MutableStateFlow<String> get() = session.targetCurrency
+    val convertedDealValue: MutableStateFlow<Double> get() = session.convertedDealValue
+    val currentCrossRate: MutableStateFlow<Double> get() = session.currentCrossRate
 
-    // Toast / Event Bus
-    private val _userMessage = MutableSharedFlow<String>()
-    val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
+    // --- Financing & Multi-Currency Credit ---
+    val principalAmount get() = financing.principalAmount
+    val downPayment get() = financing.downPayment
+    val annualInterestRate get() = financing.annualInterestRate
+    val tenureMonths get() = financing.tenureMonths
+    val paymentFrequency get() = financing.paymentFrequency
+    val isGracePeriodEnabled get() = financing.isGracePeriodEnabled
+    val graceTenureMonths get() = financing.graceTenureMonths
+    val graceInterestRate get() = financing.graceInterestRate
+    val postGraceInterestRate get() = financing.postGraceInterestRate
+    val customMonthlyPayment get() = financing.customMonthlyPayment
+    val amortizationScheme get() = financing.amortizationScheme
+    val amortization: StateFlow<AmortizationSummary> get() = financing.amortization
 
-    // 1. Active Deal Metadata
-    val dealTitle = MutableStateFlow("Enterprise Platform & Support Agreement")
-    val clientName = MutableStateFlow("Globex International")
-    val selectedCurrency = MutableStateFlow("USD")
+    val creditPrincipal get() = financing.creditPrincipal
+    val creditTenureMonths get() = financing.creditTenureMonths
+    val creditSelectedCurrencies get() = financing.creditSelectedCurrencies
+    val creditHedgeEnabled get() = financing.creditHedgeEnabled
+    val creditHedgeCostPct get() = financing.creditHedgeCostPct
+    val creditExpectedFxShiftPct get() = financing.creditExpectedFxShiftPct
+    val creditCurrencyRates get() = financing.creditCurrencyRates
+    val creditAllocations get() = financing.creditAllocations
+    val multiCreditResult get() = financing.multiCreditResult
 
-    // 2. Financing & Amortization Modeler
-    val principalAmount = MutableStateFlow("120000")
-    val downPayment = MutableStateFlow("15000")
-    val annualInterestRate = MutableStateFlow("6.5")
-    val tenureMonths = MutableStateFlow("24")
-    val paymentFrequency = MutableStateFlow(PaymentFrequency.MONTHLY)
+    // --- Landed Cost, Margin, Waterfall & Promo ---
+    val selectedCategory get() = pricing.selectedCategory
+    val selectedCountry get() = pricing.selectedCountry
+    val fobPriceInput get() = pricing.fobPriceInput
+    val targetLandedCostInput get() = pricing.targetLandedCostInput
+    val expressCoeffInput get() = pricing.expressCoeffInput
+    val isLandedReverseMode get() = pricing.isLandedReverseMode
+    val customLogisticsPct get() = pricing.customLogisticsPct
+    val customDutyPct get() = pricing.customDutyPct
+    val customVatPct get() = pricing.customVatPct
+    val customBrokerPct get() = pricing.customBrokerPct
+    val landedCostResult: StateFlow<LandedCostResult> get() = pricing.landedCostResult
 
-    // Grace Period & Two-Tier Financing Modeler
-    val isGracePeriodEnabled = MutableStateFlow(false)
-    val graceTenureMonths = MutableStateFlow("6")
-    val graceInterestRate = MutableStateFlow("0.0")
-    val postGraceInterestRate = MutableStateFlow("12.0")
-    val customMonthlyPayment = MutableStateFlow("")
-    val amortizationScheme = MutableStateFlow(AmortizationScheme.ANNUITY)
+    val marginCostInput get() = pricing.marginCostInput
+    val marginPriceInput get() = pricing.marginPriceInput
+    val marginState: StateFlow<MarginMarkupState> get() = pricing.marginState
 
-    private val _amortization = MutableStateFlow(
-        AmortizationEngine.calculate(
-            principal = 120000.0,
-            annualInterestRatePct = 6.5,
-            tenureMonths = 24,
-            downPayment = 15000.0,
-            frequency = PaymentFrequency.MONTHLY,
-            hasGracePeriod = false,
-            graceTenureMonths = 6,
-            graceInterestRatePct = 0.0,
-            postGraceInterestRatePct = 12.0
-        )
-    )
-    val amortization: StateFlow<AmortizationSummary> = _amortization.asStateFlow()
+    val waterfallRsp get() = pricing.waterfallRsp
+    val waterfallVat get() = pricing.waterfallVat
+    val waterfallRetailerMargin get() = pricing.waterfallRetailerMargin
+    val waterfallFrontDiscount get() = pricing.waterfallFrontDiscount
+    val waterfallBackBonus get() = pricing.waterfallBackBonus
+    val waterfallLogistics get() = pricing.waterfallLogistics
+    val waterfallCogs get() = pricing.waterfallCogs
+    val waterfallResult: StateFlow<PriceWaterfallResult> get() = pricing.waterfallResult
 
-    // Currency Cross-Rates
-    val currencyRates = MutableStateFlow(CurrencyEngine.DEFAULT_CURRENCIES)
-    val targetCurrency = MutableStateFlow("EUR")
-    val convertedDealValue = MutableStateFlow(
-        CurrencyEngine.convert(120000.0, "USD", "EUR")
-    )
-    val currentCrossRate = MutableStateFlow(
-        CurrencyEngine.getCrossRate("USD", "EUR")
-    )
+    val promoBasePrice get() = pricing.promoBasePrice
+    val promoUnitCost get() = pricing.promoUnitCost
+    val promoDiscountPct get() = pricing.promoDiscountPct
+    val promoBaseVolume get() = pricing.promoBaseVolume
+    val promoSimulatedLift get() = pricing.promoSimulatedLift
+    val promoResult: StateFlow<PromoBreakEvenResult> get() = pricing.promoResult
 
-    // 2b. Express Multiplier & Landed Cost Matrix
-    val selectedCategory = MutableStateFlow(CargoCategory.INDUSTRIAL)
-    val selectedCountry = MutableStateFlow(LandedCostCalculator.COUNTRY_PROFILES[0]) // Belarus (EAEU)
-    val fobPriceInput = MutableStateFlow("10000")
-    val targetLandedCostInput = MutableStateFlow("14800")
-    val expressCoeffInput = MutableStateFlow("1.48")
-    val isLandedReverseMode = MutableStateFlow(false)
+    // --- SaaS Funnel, P&L, Tornado, Terms, Cash Gap, FX Stress & Hurdle ROIC ---
+    val arpu get() = workingCapital.arpu
+    val grossMarginPct get() = workingCapital.grossMarginPct
+    val churnRatePct get() = workingCapital.churnRatePct
+    val cac get() = workingCapital.cac
+    val ltvMetrics: StateFlow<LtvMetrics> get() = workingCapital.ltvMetrics
 
-    val customLogisticsPct = MutableStateFlow("15.0")
-    val customDutyPct = MutableStateFlow("7.5")
-    val customVatPct = MutableStateFlow("20.0")
-    val customBrokerPct = MutableStateFlow("2.5")
+    val funnelLeads get() = workingCapital.funnelLeads
+    val funnelMqls get() = workingCapital.funnelMqls
+    val funnelSqls get() = workingCapital.funnelSqls
+    val funnelOpps get() = workingCapital.funnelOpps
+    val funnelClosedWon get() = workingCapital.funnelClosedWon
+    val avgDealValue get() = workingCapital.avgDealValue
+    val funnelSummary: StateFlow<FunnelSummary> get() = workingCapital.funnelSummary
 
-    private val _landedCostResult = MutableStateFlow(
-        LandedCostCalculator.calculateDirect(
-            fobPrice = 10000.0,
-            coefficient = 1.48,
-            logisticsPct = 15.0,
-            dutyPct = 7.5,
-            vatPct = 20.0,
-            brokerFeesPct = 2.5
-        )
-    )
-    val landedCostResult: StateFlow<LandedCostResult> = _landedCostResult.asStateFlow()
+    val pnlRevenue get() = workingCapital.pnlRevenue
+    val pnlCogs get() = workingCapital.pnlCogs
+    val pnlOpex get() = workingCapital.pnlOpex
+    val pnlInvestment get() = workingCapital.pnlInvestment
+    val pnlDurationMonths get() = workingCapital.pnlDurationMonths
+    val fixedCosts get() = workingCapital.fixedCosts
+    val unitPrice get() = workingCapital.unitPrice
+    val unitCost get() = workingCapital.unitCost
+    val pnlModel: StateFlow<PnlModel> get() = workingCapital.pnlModel
 
-    // 3. SaaS & Pipeline Economics (LTV, Churn, Funnel)
-    val arpu = MutableStateFlow("2500")
-    val grossMarginPct = MutableStateFlow("75")
-    val churnRatePct = MutableStateFlow("2.5")
-    val cac = MutableStateFlow("4000")
+    val tornadoDeltaPct get() = workingCapital.tornadoDeltaPct
+    val tornadoResult: StateFlow<TornadoAnalysisResult> get() = workingCapital.tornadoResult
 
-    private val _ltvMetrics = MutableStateFlow(
-        LtvCalculator.calculate(2500.0, 75.0, 2.5, 4000.0)
-    )
-    val ltvMetrics: StateFlow<LtvMetrics> = _ltvMetrics.asStateFlow()
+    val termsDealAmount get() = workingCapital.termsDealAmount
+    val termsDays get() = workingCapital.termsDays
+    val termsAnnualRate get() = workingCapital.termsAnnualRate
+    val termsCashDiscount get() = workingCapital.termsCashDiscount
+    val paymentTermsResult: StateFlow<PaymentTermsResult> get() = workingCapital.paymentTermsResult
 
-    // Funnel Conversions
-    val funnelLeads = MutableStateFlow("1200")
-    val funnelMqls = MutableStateFlow("450")
-    val funnelSqls = MutableStateFlow("180")
-    val funnelOpps = MutableStateFlow("60")
-    val funnelClosedWon = MutableStateFlow("18")
-    val avgDealValue = MutableStateFlow("35000")
+    val cashGapRevenue get() = workingCapital.cashGapRevenue
+    val cashGapCogs get() = workingCapital.cashGapCogs
+    val cashGapPrepaidPct get() = workingCapital.cashGapPrepaidPct
+    val cashGapSupplierDays get() = workingCapital.cashGapSupplierDays
+    val cashGapCustomerDays get() = workingCapital.cashGapCustomerDays
+    val cashGapInventoryDays get() = workingCapital.cashGapInventoryDays
+    val cashGapOverdraftRate get() = workingCapital.cashGapOverdraftRate
+    val cashGapFactoringAdvancePct get() = workingCapital.cashGapFactoringAdvancePct
+    val cashGapFactoringFeePct get() = workingCapital.cashGapFactoringFeePct
+    val cashGapFactoringRatePct get() = workingCapital.cashGapFactoringRatePct
+    val cashGapResult: StateFlow<CashGapResult> get() = workingCapital.cashGapResult
 
-    private val _funnelSummary = MutableStateFlow(
-        FunnelCalculator.calculate(1200, 450, 180, 60, 18, 35000.0)
-    )
-    val funnelSummary: StateFlow<FunnelSummary> = _funnelSummary.asStateFlow()
+    val fxContractPrice get() = workingCapital.fxContractPrice
+    val fxCogsForeign get() = workingCapital.fxCogsForeign
+    val fxForeignCurrency get() = workingCapital.fxForeignCurrency
+    val fxSpotRate get() = workingCapital.fxSpotRate
+    val fxHedgedPct get() = workingCapital.fxHedgedPct
+    val fxHedgeRate get() = workingCapital.fxHedgeRate
+    val fxDomesticCost get() = workingCapital.fxDomesticCost
+    val fxStressResult: StateFlow<FxStressTestResult> get() = workingCapital.fxStressResult
 
-    // 4. Margin & Markup Dynamics
-    val marginCostInput = MutableStateFlow("1000")
-    val marginPriceInput = MutableStateFlow("1600")
-    private val _marginState = MutableStateFlow(
-        MarginMarkupSolver.fromCostAndPrice(1000.0, 1600.0)
-    )
-    val marginState: StateFlow<MarginMarkupState> = _marginState.asStateFlow()
+    val hurdleDealRevenue get() = workingCapital.hurdleDealRevenue
+    val hurdleNetProfit get() = workingCapital.hurdleNetProfit
+    val hurdleTiedUpCapital get() = workingCapital.hurdleTiedUpCapital
+    val hurdleCycleDays get() = workingCapital.hurdleCycleDays
+    val hurdleCorporateRate get() = workingCapital.hurdleCorporateRate
+    val hurdleRoicResult: StateFlow<HurdleRoicResult> get() = workingCapital.hurdleRoicResult
 
-    // 5. Analytics (ROI & PnL)
-    val pnlRevenue = MutableStateFlow("150000")
-    val pnlCogs = MutableStateFlow("45000")
-    val pnlOpex = MutableStateFlow("35000")
-    val pnlInvestment = MutableStateFlow("50000")
-    val pnlDurationMonths = MutableStateFlow("12")
-    val fixedCosts = MutableStateFlow("25000")
-    val unitPrice = MutableStateFlow("500")
-    val unitCost = MutableStateFlow("150")
+    // --- Plan-Fact, KAM Corridor, Give-Get, Commercial Analyst, Deal Scoring & Clients ---
+    val planFactPlanPrice get() = kamVault.planFactPlanPrice
+    val planFactPlanVolume get() = kamVault.planFactPlanVolume
+    val planFactPlanCost get() = kamVault.planFactPlanCost
+    val planFactPlanDays get() = kamVault.planFactPlanDays
+    val planFactActualPrice get() = kamVault.planFactActualPrice
+    val planFactActualVolume get() = kamVault.planFactActualVolume
+    val planFactActualCost get() = kamVault.planFactActualCost
+    val planFactActualDays get() = kamVault.planFactActualDays
+    val planFactActualPenalties get() = kamVault.planFactActualPenalties
+    val planFactCapitalRate get() = kamVault.planFactCapitalRate
+    val planFactResult: StateFlow<PlanFactResult> get() = kamVault.planFactResult
 
-    private val _pnlModel = MutableStateFlow(
-        PnlRoiEngine.calculate(
-            revenue = 150000.0,
-            cogs = 45000.0,
-            opex = 35000.0,
-            initialInvestment = 50000.0,
-            fixedCosts = 25000.0,
-            pricePerUnit = 500.0,
-            variableCostPerUnit = 150.0,
-            dealDurationMonths = 12.0
-        )
-    )
-    val pnlModel: StateFlow<PnlModel> = _pnlModel.asStateFlow()
+    val kamBaseShelfPrice get() = kamVault.kamBaseShelfPrice
+    val kamBaseCogs get() = kamVault.kamBaseCogs
+    val kamActiveScenarioType get() = kamVault.kamActiveScenarioType
+    val kamCorridorResult: StateFlow<KamCorridorResult> get() = kamVault.kamCorridorResult
 
-    // 5b. Tornado Sensitivity Analysis (McKinsey / DuPont Profit Leverage)
-    val tornadoDeltaPct = MutableStateFlow(5.0)
-    private val _tornadoResult = MutableStateFlow(
-        TornadoSensitivityEngine.calculate(
-            revenue = 150000.0,
-            cogs = 45000.0,
-            opex = 35000.0,
-            deltaPct = 5.0,
-            discountPct = 5.0
-        )
-    )
-    val tornadoResult: StateFlow<TornadoAnalysisResult> = _tornadoResult.asStateFlow()
+    val kamDealAmount get() = kamVault.kamDealAmount
+    val kamFillRatePct get() = kamVault.kamFillRatePct
+    val kamPenaltyRatePct get() = kamVault.kamPenaltyRatePct
+    val kamTimeSlotPenalty get() = kamVault.kamTimeSlotPenalty
+    val kamSlaResult: StateFlow<RetailSlaPenaltyResult> get() = kamVault.kamSlaResult
 
-    // 5c. Plan-Fact & Variance Bridge (Факторный анализ отклонений прибыли)
-    val planFactPlanPrice = MutableStateFlow("100.0")
-    val planFactPlanVolume = MutableStateFlow("1000")
-    val planFactPlanCost = MutableStateFlow("60.0")
-    val planFactPlanDays = MutableStateFlow("30")
+    val kamOnePagerSummary: StateFlow<KamOnePagerSummary> get() = kamVault.kamOnePagerSummary
+    val showKamOnePagerDialog get() = kamVault.showKamOnePagerDialog
 
-    val planFactActualPrice = MutableStateFlow("96.0")
-    val planFactActualVolume = MutableStateFlow("1050")
-    val planFactActualCost = MutableStateFlow("63.0")
-    val planFactActualDays = MutableStateFlow("48")
-    val planFactActualPenalties = MutableStateFlow("500.0")
-    val planFactCapitalRate = MutableStateFlow("18.0")
+    val giveConcessionType get() = kamVault.giveConcessionType
+    val giveConcessionValue get() = kamVault.giveConcessionValue
+    val giveGetResult: StateFlow<GiveGetResult> get() = kamVault.giveGetResult
 
-    private val _planFactResult = MutableStateFlow(
-        PlanFactVarianceEngine.calculate(
-            planPrice = 100.0,
-            planVolume = 1000,
-            planCost = 60.0,
-            planDays = 30,
-            actualPrice = 96.0,
-            actualVolume = 1050,
-            actualCost = 63.0,
-            actualDays = 48,
-            actualPenalties = 500.0,
-            capitalRatePct = 18.0
-        )
-    )
-    val planFactResult: StateFlow<PlanFactResult> = _planFactResult.asStateFlow()
+    val tradeOffDealAmount get() = kamVault.tradeOffDealAmount
+    val tradeOffDiscountPct get() = kamVault.tradeOffDiscountPct
+    val tradeOffDeferralDays get() = kamVault.tradeOffDeferralDays
+    val tradeOffAnnualRate get() = kamVault.tradeOffAnnualRate
+    val tradeOffResult: StateFlow<TradeOffArbitrageResult> get() = kamVault.tradeOffResult
 
-    // Global Multi-Currency & Language Support
-    val appLanguage = MutableStateFlow(com.example.ui.i18n.AppLanguage.EN)
+    val basketItems: StateFlow<List<BasketSkuItem>> get() = kamVault.basketItems
+    val blendedBasketResult: StateFlow<BlendedBasketResult> get() = kamVault.blendedBasketResult
+    val rebateActualVolume get() = kamVault.rebateActualVolume
+    val rebateBaseMarginPct get() = kamVault.rebateBaseMarginPct
+    val rebateSimulationResult: StateFlow<RebateTierSimulationResult> get() = kamVault.rebateSimulationResult
 
-    fun toggleLanguage() {
-        appLanguage.value = appLanguage.value.toggle()
-        recalculateDealScoring()
-    }
+    val clientsList: StateFlow<List<ClientNegotiationProfile>> get() = kamVault.clientsList
+    val selectedClientId get() = kamVault.selectedClientId
+    val selectedClient: StateFlow<ClientNegotiationProfile?> get() = kamVault.selectedClient
 
-    fun setLanguage(lang: com.example.ui.i18n.AppLanguage) {
-        appLanguage.value = lang
-        recalculateDealScoring()
-    }
+    val dealApprovalSellingPrice get() = kamVault.dealApprovalSellingPrice
+    val dealApprovalCostPrice get() = kamVault.dealApprovalCostPrice
+    val dealApprovalVolumeUnits get() = kamVault.dealApprovalVolumeUnits
+    val dealApprovalDiscountPct get() = kamVault.dealApprovalDiscountPct
+    val dealApprovalBonusPct get() = kamVault.dealApprovalBonusPct
+    val dealApprovalPaymentDays get() = kamVault.dealApprovalPaymentDays
+    val dealApprovalFinancingRate get() = kamVault.dealApprovalFinancingRate
+    val dealApprovalStatus get() = kamVault.dealApprovalStatus
+    val dealScoringResult: StateFlow<DealScoringResult> get() = kamVault.dealScoringResult
 
-    // Scientific & Ergonomic Theme Mode (Dark Obsidian vs Light Nordic Slate)
-    val isDarkTheme = MutableStateFlow(true)
-
-    fun toggleTheme() {
-        isDarkTheme.value = !isDarkTheme.value
-        val msg = if (isDarkTheme.value) {
-            str("Obsidian Executive Dark Theme enabled", "Включена обсидиановая темная тема", appLanguage.value)
-        } else {
-            str("Ergonomic Nordic Light Theme enabled", "Включена эргономичная светлая тема", appLanguage.value)
-        }
-        viewModelScope.launch {
-            _userMessage.emit(msg)
-        }
-    }
-
-    // Screen Privacy Mode (FLAG_SECURE toggle to block screenshots & recent-app previews)
-    val isPrivacyModeEnabled = MutableStateFlow(false)
-
-    fun setPrivacyMode(enabled: Boolean) {
-        isPrivacyModeEnabled.value = enabled
-        val msg = if (enabled) {
-            str("Screen Privacy enabled (screenshots & previews blocked)", "Защита экрана включена (скриншоты и превью заблокированы)", appLanguage.value)
-        } else {
-            str("Screen Privacy disabled", "Защита экрана отключена", appLanguage.value)
-        }
-        viewModelScope.launch {
-            _userMessage.emit(msg)
-        }
-    }
-
-    val activeCurrency = MutableStateFlow(CurrencyEngine.findByCode("USD"))
-    val customCurrencies = MutableStateFlow(CurrencyEngine.DEFAULT_CURRENCIES)
-
-    // 6. Price Waterfall (РРЦ -> Net-Net Price)
-    val waterfallRsp = MutableStateFlow("100")
-    val waterfallVat = MutableStateFlow("20")
-    val waterfallRetailerMargin = MutableStateFlow("30")
-    val waterfallFrontDiscount = MutableStateFlow("5")
-    val waterfallBackBonus = MutableStateFlow("8")
-    val waterfallLogistics = MutableStateFlow("3.5")
-    val waterfallCogs = MutableStateFlow("25")
-
-    private val _waterfallResult = MutableStateFlow(
-        PriceWaterfallEngine.calculate(
-            shelfRspWithVat = 100.0,
-            vatRatePct = 20.0,
-            retailerMarginPct = 30.0,
-            frontDiscountPct = 5.0,
-            backBonusPct = 8.0,
-            logisticsCostPerUnit = 3.5,
-            supplierCogs = 25.0
-        )
-    )
-    val waterfallResult: StateFlow<PriceWaterfallResult> = _waterfallResult.asStateFlow()
-
-    // 7. Promo Break-Even & Elasticity Modeler
-    val promoBasePrice = MutableStateFlow("50")
-    val promoUnitCost = MutableStateFlow("30")
-    val promoDiscountPct = MutableStateFlow("20")
-    val promoBaseVolume = MutableStateFlow("1000")
-    val promoSimulatedLift = MutableStateFlow("50")
-
-    private val _promoResult = MutableStateFlow(
-        PromoBreakEvenEngine.calculate(
-            regularPrice = 50.0,
-            unitCost = 30.0,
-            promoDiscountPct = 20.0,
-            baseVolume = 1000,
-            simulatedVolumeLiftPct = 50.0
-        )
-    )
-    val promoResult: StateFlow<PromoBreakEvenResult> = _promoResult.asStateFlow()
-
-    // 8. Payment Terms & Working Capital Cost
-    val termsDealAmount = MutableStateFlow("100000")
-    val termsDays = MutableStateFlow("60")
-    val termsAnnualRate = MutableStateFlow("18")
-    val termsCashDiscount = MutableStateFlow("2")
-
-    private val _paymentTermsResult = MutableStateFlow(
-        PaymentTermsEngine.calculate(
-            dealAmount = 100000.0,
-            paymentDays = 60,
-            annualInterestRatePct = 18.0,
-            cashDiscountPct = 2.0
-        )
-    )
-    val paymentTermsResult: StateFlow<PaymentTermsResult> = _paymentTermsResult.asStateFlow()
-
-    // 9. Multi-Currency Credit & Hedging (до 4х валют)
-    val creditPrincipal = MutableStateFlow("100000")
-    val creditTenureMonths = MutableStateFlow("12")
-    val creditSelectedCurrencies = MutableStateFlow(listOf("USD", "EUR", "RUB", "CNY"))
-    val creditHedgeEnabled = MutableStateFlow(true)
-    val creditHedgeCostPct = MutableStateFlow("2.5")
-    val creditExpectedFxShiftPct = MutableStateFlow("8.0")
-    val creditCurrencyRates = MutableStateFlow(
-        mapOf(
-            "USD" to 7.5,
-            "EUR" to 5.5,
-            "RUB" to 18.5,
-            "CNY" to 4.2,
-            "BYN" to 11.5,
-            "KZT" to 14.5,
-            "AED" to 6.0,
-            "TRY" to 42.0
-        )
-    )
-    val creditAllocations = MutableStateFlow(
-        mapOf(
-            "USD" to 25.0,
-            "EUR" to 25.0,
-            "RUB" to 25.0,
-            "CNY" to 25.0
-        )
-    )
-
-    private val _multiCreditResult = MutableStateFlow(
-        MultiCurrencyCreditEngine.calculate(
-            dealAmount = 100000.0,
-            baseCurrencyCode = "USD",
-            tenureMonths = 12,
-            legsInput = listOf(
-                CurrencyCreditLegInput("USD", 7.5, 25.0, 2.5, 8.0, true),
-                CurrencyCreditLegInput("EUR", 5.5, 25.0, 2.5, 8.0, true),
-                CurrencyCreditLegInput("RUB", 18.5, 25.0, 2.5, 8.0, true),
-                CurrencyCreditLegInput("CNY", 4.2, 25.0, 2.5, 8.0, true)
-            )
-        )
-    )
-    val multiCreditResult: StateFlow<MultiCurrencyCreditResult> = _multiCreditResult.asStateFlow()
-
-    // 10. Cash Gap & Working Capital Peak
-    val cashGapRevenue = MutableStateFlow("100000")
-    val cashGapCogs = MutableStateFlow("70000")
-    val cashGapPrepaidPct = MutableStateFlow("20")
-    val cashGapSupplierDays = MutableStateFlow("30")
-    val cashGapCustomerDays = MutableStateFlow("60")
-    val cashGapInventoryDays = MutableStateFlow("15")
-    val cashGapOverdraftRate = MutableStateFlow("22")
-    val cashGapFactoringAdvancePct = MutableStateFlow("85")
-    val cashGapFactoringFeePct = MutableStateFlow("1.5")
-    val cashGapFactoringRatePct = MutableStateFlow("20")
-
-    private val _cashGapResult = MutableStateFlow(
-        CashGapEngine.calculate(
-            dealRevenue = 100000.0,
-            cogsTotal = 70000.0,
-            prepaidPct = 20.0,
-            supplierPayDays = 30,
-            customerPayDays = 60,
-            inventoryDays = 15,
-            overdraftRatePct = 22.0
-        )
-    )
-    val cashGapResult: StateFlow<CashGapResult> = _cashGapResult.asStateFlow()
-
-    // 11. FX Stress-Test & Margin Wipeout Threshold
-    val fxContractPrice = MutableStateFlow("1000000")
-    val fxCogsForeign = MutableStateFlow("8000")
-    val fxForeignCurrency = MutableStateFlow("USD")
-    val fxSpotRate = MutableStateFlow("95.0")
-    val fxHedgedPct = MutableStateFlow("30")
-    val fxHedgeRate = MutableStateFlow("96.0")
-    val fxDomesticCost = MutableStateFlow("50000")
-
-    private val _fxStressResult = MutableStateFlow(
-        FxStressTestEngine.calculate(
-            contractPrice = 1000000.0,
-            cogsForeignAmount = 8000.0,
-            foreignCurrencyCode = "USD",
-            spotRate = 95.0,
-            hedgedPct = 30.0,
-            hedgeRate = 96.0,
-            domesticCost = 50000.0
-        )
-    )
-    val fxStressResult: StateFlow<FxStressTestResult> = _fxStressResult.asStateFlow()
-
-    // 12. Hurdle Rate & ROIC Guardrail
-    val hurdleDealRevenue = MutableStateFlow("100000")
-    val hurdleNetProfit = MutableStateFlow("7000")
-    val hurdleTiedUpCapital = MutableStateFlow("65000")
-    val hurdleCycleDays = MutableStateFlow("90")
-    val hurdleCorporateRate = MutableStateFlow("20")
-
-    private val _hurdleRoicResult = MutableStateFlow(
-        HurdleRoicEngine.calculate(
-            dealRevenue = 100000.0,
-            dealNetProfit = 7000.0,
-            tiedUpCapital = 65000.0,
-            cycleDays = 90,
-            corporateHurdleRatePct = 20.0
-        )
-    )
-    val hurdleRoicResult: StateFlow<HurdleRoicResult> = _hurdleRoicResult.asStateFlow()
-
-    // 13. КАМ: Negotiation Corridor, SLA Penalty, and One-Pager
-    val kamBaseShelfPrice = MutableStateFlow("100")
-    val kamBaseCogs = MutableStateFlow("60")
-    val kamActiveScenarioType = MutableStateFlow(KamScenarioType.TARGET)
-    private val _kamCorridorResult = MutableStateFlow(
-        KamNegotiationEngine.calculateCorridor(100.0, 60.0, KamScenarioType.TARGET)
-    )
-    val kamCorridorResult: StateFlow<KamCorridorResult> = _kamCorridorResult.asStateFlow()
-
-    val kamDealAmount = MutableStateFlow("100000")
-    val kamFillRatePct = MutableStateFlow("95")
-    val kamPenaltyRatePct = MutableStateFlow("12")
-    val kamTimeSlotPenalty = MutableStateFlow("1500")
-    private val _kamSlaResult = MutableStateFlow(
-        KamNegotiationEngine.calculateRetailSlaPenalty(100000.0, 95.0, 12.0, 1500.0, 30.0)
-    )
-    val kamSlaResult: StateFlow<RetailSlaPenaltyResult> = _kamSlaResult.asStateFlow()
-
-    private val _kamOnePagerSummary = MutableStateFlow(
-        KamNegotiationEngine.buildOnePagerSummary(_kamCorridorResult.value, _kamSlaResult.value)
-    )
-    val kamOnePagerSummary: StateFlow<KamOnePagerSummary> = _kamOnePagerSummary.asStateFlow()
-    val showKamOnePagerDialog = MutableStateFlow(false)
-
-    // 13b. Give-Get Concession Balancing Engine
-    val giveConcessionType = MutableStateFlow(GiveConcessionType.PAYMENT_DEFERRAL)
-    val giveConcessionValue = MutableStateFlow("30")
-    private val _giveGetResult = MutableStateFlow(
-        GiveGetEngine.calculate(
-            sellingPrice = 100.0,
-            cogs = 60.0,
-            baseVolume = 1000,
-            currentDiscountPct = 5.0,
-            currentBonusPct = 5.0,
-            currentPaymentDays = 30,
-            waccRatePct = 18.0,
-            concessionType = GiveConcessionType.PAYMENT_DEFERRAL,
-            concessionValue = 30.0
-        )
-    )
-    val giveGetResult: StateFlow<GiveGetResult> = _giveGetResult.asStateFlow()
-
-    // 14. Commercial Analyst: Trade-Off, Basket, Rebate Tiers
-    val tradeOffDealAmount = MutableStateFlow("100000")
-    val tradeOffDiscountPct = MutableStateFlow("3")
-    val tradeOffDeferralDays = MutableStateFlow("30")
-    val tradeOffAnnualRate = MutableStateFlow("20")
-    private val _tradeOffResult = MutableStateFlow(
-        CommercialAnalystEngine.calculateTradeOff(100000.0, 3.0, 30, 20.0)
-    )
-    val tradeOffResult: StateFlow<TradeOffArbitrageResult> = _tradeOffResult.asStateFlow()
-
-    private val _basketItems = MutableStateFlow(CommercialAnalystEngine.DEFAULT_BASKET_ITEMS)
-    val basketItems: StateFlow<List<BasketSkuItem>> = _basketItems.asStateFlow()
-    private val _blendedBasketResult = MutableStateFlow(
-        CommercialAnalystEngine.calculateBlendedBasket(CommercialAnalystEngine.DEFAULT_BASKET_ITEMS)
-    )
-    val blendedBasketResult: StateFlow<BlendedBasketResult> = _blendedBasketResult.asStateFlow()
-
-    val rebateActualVolume = MutableStateFlow("120000")
-    val rebateBaseMarginPct = MutableStateFlow("30")
-    private val _rebateSimulationResult = MutableStateFlow(
-        CommercialAnalystEngine.simulateRebateTiers(120000.0, 30.0)
-    )
-    val rebateSimulationResult: StateFlow<RebateTierSimulationResult> = _rebateSimulationResult.asStateFlow()
+    // --- AI Audit & Commercial OCR ---
+    val aiAuditState: StateFlow<AiAuditUiState> get() = aiExport.aiAuditState
+    val isOcrScanning: MutableStateFlow<Boolean> get() = aiExport.isOcrScanning
+    val ocrScanResult: MutableStateFlow<OcrExtractedDealData?> get() = aiExport.ocrScanResult
+    val ocrError: MutableStateFlow<String?> get() = aiExport.ocrError
+    val isOcrDialogOpen: MutableStateFlow<Boolean> get() = aiExport.isOcrDialogOpen
 
     init {
         viewModelScope.launch {
             authRepository.currentUserFlow.collect { user ->
                 if (user != null) {
                     dealRepository.startFirestoreSync(viewModelScope)
+                    clientRepository.startFirestoreSync(viewModelScope)
                 } else {
                     dealRepository.stopFirestoreSync()
+                    clientRepository.stopFirestoreSync()
                 }
             }
         }
@@ -570,380 +318,254 @@ class BigDealViewModel(
     override fun onCleared() {
         super.onCleared()
         dealRepository.stopFirestoreSync()
+        clientRepository.stopFirestoreSync()
     }
 
-    // --- Financing Calculation Triggers ---
-    fun updateFinancing() {
-        val p = principalAmount.value.toCleanDouble() ?: 0.0
-        val down = downPayment.value.toCleanDouble() ?: 0.0
-        val r = annualInterestRate.value.toCleanDouble() ?: 0.0
-        val tenure = tenureMonths.value.toCleanInt() ?: 12
-        val hasGrace = isGracePeriodEnabled.value
-        val graceTenure = graceTenureMonths.value.toCleanInt() ?: 0
-        val graceRate = graceInterestRate.value.toCleanDouble() ?: 0.0
-        val postGraceRate = postGraceInterestRate.value.toCleanDouble() ?: r
-        val customPayment = customMonthlyPayment.value.toCleanDouble()
-
-        _amortization.value = AmortizationEngine.calculate(
-            principal = p,
-            annualInterestRatePct = r,
-            tenureMonths = tenure,
-            downPayment = down,
-            frequency = paymentFrequency.value,
-            hasGracePeriod = hasGrace,
-            graceTenureMonths = graceTenure,
-            graceInterestRatePct = graceRate,
-            postGraceInterestRatePct = postGraceRate,
-            scheme = amortizationScheme.value,
-            customPeriodicPayment = customPayment
-        )
-        updateCurrencyConversion()
+    // --- Session & Currency Actions ---
+    fun toggleLanguage() {
+        session.appLanguage.value = session.appLanguage.value.toggle()
+        recalculateDealScoring()
     }
 
-    fun setAmortizationScheme(scheme: AmortizationScheme) {
-        amortizationScheme.value = scheme
-        updateFinancing()
+    fun setLanguage(lang: AppLanguage) {
+        session.appLanguage.value = lang
+        recalculateDealScoring()
     }
 
-    fun setCustomMonthlyPayment(value: String) {
-        customMonthlyPayment.value = value
-        updateFinancing()
-    }
+    fun toggleTheme() = session.toggleTheme()
+    fun setPrivacyMode(enabled: Boolean) = session.setPrivacyMode(enabled)
 
-    fun clearCustomMonthlyPayment() {
-        customMonthlyPayment.value = ""
-        updateFinancing()
-    }
+    fun setTargetCurrency(code: String) =
+        session.setTargetCurrency(code, principalAmount.value.toCleanDouble() ?: 0.0)
 
-    fun toggleGracePeriod(enabled: Boolean) {
-        isGracePeriodEnabled.value = enabled
-        if (enabled && (postGraceInterestRate.value.isEmpty() || postGraceInterestRate.value == "0.0")) {
-            postGraceInterestRate.value = annualInterestRate.value
-        }
-        updateFinancing()
-    }
+    fun updateCurrencyConversion() =
+        session.updateCurrencyConversion(principalAmount.value.toCleanDouble() ?: 0.0)
 
-    fun setPaymentFrequency(freq: PaymentFrequency) {
-        paymentFrequency.value = freq
-        updateFinancing()
-    }
+    fun selectActiveCurrency(code: String) =
+        session.selectActiveCurrency(code, principalAmount.value.toCleanDouble() ?: 0.0)
 
-    fun setTargetCurrency(code: String) {
-        targetCurrency.value = code
-        updateCurrencyConversion()
-    }
+    fun addCustomCurrency(code: String, name: String, symbol: String, rateToBaseUsd: Double) =
+        session.addCustomCurrency(code, name, symbol, rateToBaseUsd, principalAmount.value.toCleanDouble() ?: 0.0)
 
-    fun updateCurrencyConversion() {
-        val p = principalAmount.value.toCleanDouble() ?: 0.0
-        convertedDealValue.value = CurrencyEngine.convert(
-            amount = p,
-            sourceCode = selectedCurrency.value,
-            targetCode = targetCurrency.value,
-            rates = currencyRates.value
-        )
-        currentCrossRate.value = CurrencyEngine.getCrossRate(
-            sourceCode = selectedCurrency.value,
-            targetCode = targetCurrency.value,
-            rates = currencyRates.value
+    fun formatCurrency(amount: Double): String = session.formatCurrency(amount)
+
+    // --- Financing & Multi-Currency Actions ---
+    fun updateFinancing() = financing.updateFinancing()
+    fun setAmortizationScheme(scheme: AmortizationScheme) = financing.setAmortizationScheme(scheme)
+    fun setCustomMonthlyPayment(value: String) = financing.setCustomMonthlyPayment(value)
+    fun clearCustomMonthlyPayment() = financing.clearCustomMonthlyPayment()
+    fun toggleGracePeriod(enabled: Boolean) = financing.toggleGracePeriod(enabled)
+    fun setPaymentFrequency(freq: PaymentFrequency) = financing.setPaymentFrequency(freq)
+
+    fun toggleCreditCurrency(code: String) = financing.toggleCreditCurrency(code)
+    fun setCreditCurrenciesCount(count: Int) = financing.setCreditCurrenciesCount(count)
+    fun updateCreditCurrencyRate(code: String, rate: Double) = financing.updateCreditCurrencyRate(code, rate)
+    fun updateCreditAllocation(code: String, alloc: Double) = financing.updateCreditAllocation(code, alloc)
+    fun setCreditHedgeEnabled(enabled: Boolean) = financing.setCreditHedgeEnabled(enabled)
+    fun updateMultiCreditCalculations() = financing.updateMultiCreditCalculations()
+
+    fun importDealToMultiCredit() {
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val p = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 120000.0)
+        val t = tenureMonths.value.toCleanInt() ?: 12
+        creditPrincipal.value = session.formatCleanNum(p)
+        creditTenureMonths.value = t.toString()
+        updateMultiCreditCalculations()
+        session.emitLocalized(
+            "Deal data imported to multi-currency credit calculator: ${formatCurrency(p)}",
+            "Данные сделки импортированы в мультивалютный кредитный калькулятор: ${formatCurrency(p)}"
         )
     }
 
-    // --- Landed Cost & Express Multipliers ---
-    fun updateLandedCostCalculations() {
-        val fob = fobPriceInput.value.toCleanDouble() ?: 0.0
-        val targetLanded = targetLandedCostInput.value.toCleanDouble() ?: 0.0
-        val coeff = expressCoeffInput.value.toCleanDouble() ?: 1.48
-
-        val logPct = customLogisticsPct.value.toCleanDouble() ?: 15.0
-        val dutyPct = customDutyPct.value.toCleanDouble() ?: 7.5
-        val vatPct = customVatPct.value.toCleanDouble() ?: 20.0
-        val brokerPct = customBrokerPct.value.toCleanDouble() ?: 2.5
-
-        if (isLandedReverseMode.value) {
-            val result = LandedCostCalculator.calculateReverse(
-                targetLandedCost = targetLanded,
-                coefficient = coeff,
-                logisticsPct = logPct,
-                dutyPct = dutyPct,
-                vatPct = vatPct,
-                brokerFeesPct = brokerPct
-            )
-            _landedCostResult.value = result
-            fobPriceInput.value = result.fobPrice.toInt().toString()
-        } else {
-            val result = LandedCostCalculator.calculateDirect(
-                fobPrice = fob,
-                coefficient = coeff,
-                logisticsPct = logPct,
-                dutyPct = dutyPct,
-                vatPct = vatPct,
-                brokerFeesPct = brokerPct
-            )
-            _landedCostResult.value = result
-            targetLandedCostInput.value = result.landedCost.toInt().toString()
-        }
-    }
-
-    fun setLandedReverseMode(reverse: Boolean) {
-        isLandedReverseMode.value = reverse
-        updateLandedCostCalculations()
-    }
-
-    fun applyCargoCategory(category: CargoCategory) {
-        selectedCategory.value = category
-        if (category != CargoCategory.CUSTOM) {
-            expressCoeffInput.value = category.defaultCoeff.toString()
-            customLogisticsPct.value = category.avgLogisticsPct.toString()
-            customDutyPct.value = category.avgDutyPct.toString()
-        }
-        updateLandedCostCalculations()
-    }
-
-    fun applyCountryTradeProfile(country: CountryTradeProfile) {
-        selectedCountry.value = country
-        customVatPct.value = country.defaultVatPct.toString()
-        customDutyPct.value = country.defaultDutyPct.toString()
-        customLogisticsPct.value = country.defaultLogisticsPct.toString()
-        customBrokerPct.value = country.defaultBrokerFeesPct.toString()
-        recalculateCustomCoefficient()
-    }
-
-    fun recalculateCustomCoefficient() {
-        val logPct = customLogisticsPct.value.toCleanDouble() ?: 15.0
-        val dutyPct = customDutyPct.value.toCleanDouble() ?: 7.5
-        val vatPct = customVatPct.value.toCleanDouble() ?: 20.0
-        val brokerPct = customBrokerPct.value.toCleanDouble() ?: 2.5
-        val computedCoeff = LandedCostCalculator.buildCoefficientFromComponents(
-            logisticsPct = logPct,
-            dutyPct = dutyPct,
-            vatPct = vatPct,
-            brokerFeesPct = brokerPct
+    fun applyCreditHedgedRateToFinancing() {
+        val hedgedRate = multiCreditResult.value.weightedEffectiveRateWithHedgePct
+        val rateFormatted = String.format(Locale.US, "%.1f", hedgedRate)
+        annualInterestRate.value = rateFormatted
+        updateFinancing()
+        dealApprovalFinancingRate.value = rateFormatted
+        recalculateDealScoring()
+        session.emitLocalized(
+            "Deal financing rate updated: ${annualInterestRate.value}% (basket & hedge adjusted)",
+            "Ставка финансирования сделки обновлена: ${annualInterestRate.value}% (с учетом корзины и хеджа)"
         )
-        expressCoeffInput.value = computedCoeff.toString()
-        updateLandedCostCalculations()
     }
 
-    fun calibrateCoefficientFromPrices() {
-        val fob = fobPriceInput.value.toCleanDouble() ?: 0.0
-        val landed = targetLandedCostInput.value.toCleanDouble() ?: 0.0
-        val calibrated = LandedCostCalculator.calibrateCoefficient(fob, landed)
-        expressCoeffInput.value = calibrated.toString()
-        selectedCategory.value = CargoCategory.CUSTOM
-        updateLandedCostCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(str("Calibrated Express Multiplier: $calibrated", "Вычислен экспресс-коэффициент: $calibrated", appLanguage.value))
-        }
-    }
-
-    fun transferLandedCostToMarginSolver() {
-        val landed = _landedCostResult.value.landedCost
-        applyFobLandedCostToMargin(landed)
-    }
-
-    fun applyFobLandedCostToMargin(landedCost: Double) {
-        val landedInt = landedCost.toInt()
-        marginCostInput.value = landedInt.toString()
-        val currentPrice = marginPriceInput.value.toCleanDouble() ?: 0.0
-        if (currentPrice <= landedCost) {
-            val suggestedPrice = (landedCost / (1.0 - 0.35)).toInt()
-            marginPriceInput.value = suggestedPrice.toString()
-        }
-        onMarginCostOrPriceChanged()
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Landed cost ${formatCurrency(landedCost)} applied from FOB",
-                    "Себестоимость ${formatCurrency(landedCost)} применена из FOB",
-                    appLanguage.value
-                )
-            )
-        }
-    }
+    // --- Landed Cost, Margin, Waterfall & Promo Actions ---
+    fun updateLandedCostCalculations() = pricing.updateLandedCostCalculations()
+    fun setLandedReverseMode(reverse: Boolean) = pricing.setLandedReverseMode(reverse)
+    fun applyCargoCategory(category: CargoCategory) = pricing.applyCargoCategory(category)
+    fun applyCountryTradeProfile(country: CountryTradeProfile) = pricing.applyCountryTradeProfile(country)
+    fun recalculateCustomCoefficient() = pricing.recalculateCustomCoefficient()
+    fun calibrateCoefficientFromPrices() = pricing.calibrateCoefficientFromPrices()
+    fun transferLandedCostToMarginSolver() = pricing.transferLandedCostToMarginSolver()
+    fun applyFobLandedCostToMargin(landedCost: Double) = pricing.applyFobLandedCostToMargin(landedCost)
 
     fun transferLandedCostToDeal() {
-        val landed = _landedCostResult.value.landedCost
-        val costStr = if (landed % 1.0 == 0.0) landed.toInt().toString() else String.format(Locale.US, "%.2f", landed)
+        val landed = landedCostResult.value.landedCost
+        val costStr = session.formatCleanNum(landed)
         dealApprovalCostPrice.value = costStr
 
         val currentPrice = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
         if (currentPrice <= landed) {
             val suggestedPrice = landed / (1.0 - 0.35)
-            val priceStr = if (suggestedPrice % 1.0 == 0.0) suggestedPrice.toInt().toString() else String.format(Locale.US, "%.2f", suggestedPrice)
-            dealApprovalSellingPrice.value = priceStr
+            dealApprovalSellingPrice.value = session.formatCleanNum(suggestedPrice)
         }
-
         recalculateDealScoring()
 
         val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
         val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: (landed * 1.54)
         val totalDealValue = sp * vol
-        principalAmount.value = totalDealValue.toInt().toString()
+        principalAmount.value = session.formatCleanNum(totalDealValue)
         updateFinancing()
 
         unitCost.value = costStr
         unitPrice.value = dealApprovalSellingPrice.value
-        pnlCogs.value = (landed * vol).toInt().toString()
-        pnlRevenue.value = totalDealValue.toInt().toString()
+        pnlCogs.value = session.formatCleanNum(landed * vol)
+        pnlRevenue.value = session.formatCleanNum(totalDealValue)
         updatePnlCalculations()
 
         marginCostInput.value = costStr
         marginPriceInput.value = dealApprovalSellingPrice.value
         onMarginCostOrPriceChanged()
 
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Deal COGS updated with Landed Cost: ${formatCurrency(landed)}",
-                    "Себестоимость сделки (COGS) обновлена из Landed Cost: ${formatCurrency(landed)}",
-                    appLanguage.value
-                )
-            )
-        }
-    }
-
-    // --- SaaS & Funnel Triggers ---
-    fun updateLtvCalculations() {
-        val a = arpu.value.toCleanDouble() ?: 0.0
-        val m = grossMarginPct.value.toCleanDouble() ?: 70.0
-        val ch = churnRatePct.value.toCleanDouble() ?: 2.0
-        val c = cac.value.toCleanDouble() ?: 1000.0
-        _ltvMetrics.value = LtvCalculator.calculate(
-            arpu = a,
-            grossMarginPct = m,
-            churnRatePct = ch,
-            cac = c
+        session.emitLocalized(
+            "Deal COGS updated with Landed Cost: ${formatCurrency(landed)}",
+            "Себестоимость сделки (COGS) обновлена из Landed Cost: ${formatCurrency(landed)}"
         )
     }
 
-    fun updateFunnelCalculations() {
-        val leads = funnelLeads.value.toCleanInt() ?: 0
-        val mqls = funnelMqls.value.toCleanInt() ?: 0
-        val sqls = funnelSqls.value.toCleanInt() ?: 0
-        val opps = funnelOpps.value.toCleanInt() ?: 0
-        val won = funnelClosedWon.value.toCleanInt() ?: 0
-        val dealVal = avgDealValue.value.toCleanDouble() ?: 0.0
-        _funnelSummary.value = FunnelCalculator.calculate(
-            leads = leads,
-            mqls = mqls,
-            sqls = sqls,
-            opportunities = opps,
-            closedWon = won,
-            avgDealValue = dealVal
+    fun onMarginCostOrPriceChanged(newCost: String? = null, newPrice: String? = null) =
+        pricing.onMarginCostOrPriceChanged(newCost, newPrice)
+    fun applyMarginPercentPreset(marginPct: Double) = pricing.applyMarginPercentPreset(marginPct)
+    fun applyMarkupPercentPreset(markupPct: Double) = pricing.applyMarkupPercentPreset(markupPct)
+
+    fun updateWaterfallCalculations() = pricing.updateWaterfallCalculations()
+    fun importCogsFromLandedCost() = pricing.importCogsFromLandedCost()
+
+    fun applyWaterfallToMarginSolver() {
+        val net = waterfallResult.value.netNetPrice
+        val cogs = waterfallResult.value.supplierCogs
+        val costStr = session.formatCleanNum(cogs)
+        val netStr = session.formatCleanNum(net)
+        onMarginCostOrPriceChanged(newCost = costStr, newPrice = netStr)
+        dealApprovalCostPrice.value = costStr
+        dealApprovalSellingPrice.value = if (waterfallRsp.value.isNotBlank()) waterfallRsp.value else netStr
+        dealApprovalDiscountPct.value = waterfallFrontDiscount.value
+        dealApprovalBonusPct.value = waterfallBackBonus.value
+        recalculateDealScoring()
+        session.emitLocalized(
+            "Net-Net price (${formatCurrency(net)}) transferred to margin solver and deal desk",
+            "Чистая цена (${formatCurrency(net)}) передана в расчет маржи и сделку"
         )
     }
 
-    // --- Margin & Markup Solver Triggers ---
-    fun onMarginCostOrPriceChanged(newCost: String? = null, newPrice: String? = null) {
-        newCost?.let { marginCostInput.value = it }
-        newPrice?.let { marginPriceInput.value = it }
-        val cost = marginCostInput.value.toCleanDouble() ?: 0.0
-        val price = marginPriceInput.value.toCleanDouble() ?: 0.0
-        _marginState.value = MarginMarkupSolver.fromCostAndPrice(cost, price)
-    }
-
-    fun applyMarginPercentPreset(marginPct: Double) {
-        val cost = marginCostInput.value.toCleanDouble() ?: 0.0
-        _marginState.value = MarginMarkupSolver.fromCostAndMargin(cost, marginPct)
-        val sp = _marginState.value.sellingPrice
-        marginPriceInput.value = if (sp % 1.0 == 0.0) sp.toInt().toString() else String.format(Locale.US, "%.2f", sp)
-        viewModelScope.launch {
-            _userMessage.emit(str("Target margin ${marginPct.toInt()}% applied (Selling Price: ${formatCurrency(sp)})", "Установлена целевая маржа ${marginPct.toInt()}% (Цена продажи: ${formatCurrency(sp)})", appLanguage.value))
-        }
-    }
-
-    fun applyMarkupPercentPreset(markupPct: Double) {
-        val cost = marginCostInput.value.toCleanDouble() ?: 0.0
-        _marginState.value = MarginMarkupSolver.fromCostAndMarkup(cost, markupPct)
-        val sp = _marginState.value.sellingPrice
-        marginPriceInput.value = if (sp % 1.0 == 0.0) sp.toInt().toString() else String.format(Locale.US, "%.2f", sp)
-        viewModelScope.launch {
-            _userMessage.emit(str("Target markup ${markupPct.toInt()}% applied (Selling Price: ${formatCurrency(sp)})", "Установлена целевая наценка ${markupPct.toInt()}% (Цена продажи: ${formatCurrency(sp)})", appLanguage.value))
-        }
-    }
-
-    // --- PnL and ROI Triggers ---
-    fun updatePnlCalculations() {
-        val rev = pnlRevenue.value.toCleanDouble() ?: 0.0
-        val cogs = pnlCogs.value.toCleanDouble() ?: 0.0
-        val opex = pnlOpex.value.toCleanDouble() ?: 0.0
-        val inv = pnlInvestment.value.toCleanDouble() ?: 0.0
-        val dur = pnlDurationMonths.value.toCleanDouble() ?: 12.0
-        val fixed = fixedCosts.value.toCleanDouble() ?: (opex * 0.7)
-        val pUnit = unitPrice.value.toCleanDouble() ?: 500.0
-        val cUnit = unitCost.value.toCleanDouble() ?: 150.0
-
-        _pnlModel.value = PnlRoiEngine.calculate(
-            revenue = rev,
-            cogs = cogs,
-            opex = opex,
-            initialInvestment = inv,
-            fixedCosts = fixed,
-            pricePerUnit = pUnit,
-            variableCostPerUnit = cUnit,
-            dealDurationMonths = dur
-        )
-        updateTornadoCalculations()
-    }
-
-    fun setTornadoDeltaPct(pct: Double) {
-        tornadoDeltaPct.value = pct
-        updateTornadoCalculations()
-    }
-
-    fun updateTornadoCalculations() {
-        val rev = pnlRevenue.value.toCleanDouble() ?: 0.0
-        val cogs = pnlCogs.value.toCleanDouble() ?: 0.0
-        val opex = pnlOpex.value.toCleanDouble() ?: 0.0
-        val discount = dealApprovalDiscountPct.value.toCleanDouble() ?: 5.0
-        _tornadoResult.value = TornadoSensitivityEngine.calculate(
-            revenue = rev,
-            cogs = cogs,
-            opex = opex,
-            deltaPct = tornadoDeltaPct.value,
-            discountPct = discount
-        )
-    }
-
-    fun applyRoiPnlForecast(forecast: com.example.domain.calculator.RoiPnlForecast) {
-        pnlRevenue.value = forecast.total12MonthRevenue.toInt().toString()
-        val cogs = maxOf(0.0, forecast.total12MonthRevenue - forecast.total12MonthGrossProfit)
-        pnlCogs.value = cogs.toInt().toString()
-        pnlOpex.value = forecast.total12MonthOpex.toInt().toString()
-        pnlInvestment.value = forecast.totalCacInvestment.toInt().toString()
-        pnlDurationMonths.value = "12"
+    fun applyWaterfallToPnl() {
+        val net = waterfallResult.value.netNetPrice
+        val cogs = waterfallResult.value.supplierCogs
+        unitPrice.value = session.formatCleanNum(net)
+        unitCost.value = session.formatCleanNum(cogs)
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        pnlRevenue.value = session.formatCleanNum(net * vol)
+        pnlCogs.value = session.formatCleanNum(cogs * vol)
         updatePnlCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(str("Applied 12-Month Cohort Forecast to Contract P&L", "Прогноз когорты 12м применен к P&L контракта", appLanguage.value))
-        }
-    }
-
-    // --- Plan-Fact Variance Bridge Methods ---
-    fun updatePlanFactCalculations() {
-        val pp = planFactPlanPrice.value.toCleanDouble() ?: 100.0
-        val pv = planFactPlanVolume.value.toCleanInt() ?: 1000
-        val pc = planFactPlanCost.value.toCleanDouble() ?: 60.0
-        val pd = planFactPlanDays.value.toCleanInt() ?: 30
-
-        val ap = planFactActualPrice.value.toCleanDouble() ?: 96.0
-        val av = planFactActualVolume.value.toCleanInt() ?: 1050
-        val ac = planFactActualCost.value.toCleanDouble() ?: 63.0
-        val ad = planFactActualDays.value.toCleanInt() ?: 48
-        val aPen = planFactActualPenalties.value.toCleanDouble() ?: 500.0
-        val rate = planFactCapitalRate.value.toCleanDouble() ?: 18.0
-
-        _planFactResult.value = PlanFactVarianceEngine.calculate(
-            planPrice = pp,
-            planVolume = pv,
-            planCost = pc,
-            planDays = pd,
-            actualPrice = ap,
-            actualVolume = av,
-            actualCost = ac,
-            actualDays = ad,
-            actualPenalties = aPen,
-            capitalRatePct = rate
+        session.emitLocalized(
+            "Net-Net price and cost transferred to P&L / Break-Even",
+            "Net-Net цена и себестоимость переданы в P&L / Точку безубыточности"
         )
     }
+
+    fun updatePromoCalculations() = pricing.updatePromoCalculations()
+    fun importPromoFromWaterfall() = pricing.importPromoFromWaterfall()
+
+    // --- SaaS Funnel, P&L, Terms, Cash Gap, FX Stress & Hurdle ROIC Actions ---
+    fun updateLtvCalculations() = workingCapital.updateLtvCalculations()
+    fun updateFunnelCalculations() = workingCapital.updateFunnelCalculations()
+    fun updatePnlCalculations() = workingCapital.updatePnlCalculations()
+    fun setTornadoDeltaPct(pct: Double) = workingCapital.setTornadoDeltaPct(pct)
+    fun updateTornadoCalculations() = workingCapital.updateTornadoCalculations()
+    fun applyRoiPnlForecast(forecast: RoiPnlForecast) = workingCapital.applyRoiPnlForecast(forecast)
+
+    fun updatePaymentTermsCalculations() = workingCapital.updatePaymentTermsCalculations()
+
+    fun importTermsFromDeal() {
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val dealTotal = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 120000.0)
+        termsDealAmount.value = session.formatCleanNum(dealTotal)
+        termsDays.value = dealApprovalPaymentDays.value
+        termsAnnualRate.value = dealApprovalFinancingRate.value
+        updatePaymentTermsCalculations()
+        session.emitLocalized(
+            "Deal terms imported (Amount: ${formatCurrency(dealTotal)}, Days: ${termsDays.value}, Rate: ${termsAnnualRate.value}%)",
+            "Условия сделки импортированы (Сумма: ${formatCurrency(dealTotal)}, Отсрочка: ${termsDays.value} дн., Ставка: ${termsAnnualRate.value}%)"
+        )
+    }
+
+    fun applyEffectiveNetToDeal() {
+        val npv = paymentTermsResult.value.netPresentValue
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        if (vol > 0) {
+            dealApprovalSellingPrice.value = session.formatCleanNum(npv / vol)
+            recalculateDealScoring()
+        }
+        val npvStr = session.formatCleanNum(npv)
+        principalAmount.value = npvStr
+        updateFinancing()
+        pnlRevenue.value = npvStr
+        updatePnlCalculations()
+        session.emitLocalized(
+            "Deal amount adjusted for terms cost (NPV): ${formatCurrency(npv)}",
+            "Сумма сделки скорректирована на стоимость отсрочки (NPV): ${formatCurrency(npv)}"
+        )
+    }
+
+    fun updateCashGapCalculations() = workingCapital.updateCashGapCalculations()
+
+    fun importDealToCashGap() {
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
+        val rev = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 100000.0)
+        val realCogs = if (cp > 0 && vol > 0) cp * vol else (rev * (1.0 - (marginState.value.marginPct / 100.0)))
+
+        cashGapRevenue.value = session.formatCleanNum(rev)
+        cashGapCogs.value = session.formatCleanNum(realCogs)
+        cashGapCustomerDays.value = dealApprovalPaymentDays.value
+        cashGapOverdraftRate.value = dealApprovalFinancingRate.value
+        updateCashGapCalculations()
+        session.emitLocalized(
+            "Deal imported to Cash Gap (Revenue: ${formatCurrency(rev)}, COGS: ${formatCurrency(realCogs)}, DSO: ${cashGapCustomerDays.value}d)",
+            "Сделка импортирована в кассовый разрыв (Выручка: ${formatCurrency(rev)}, Себестоимость: ${formatCurrency(realCogs)}, Отсрочка: ${cashGapCustomerDays.value} дн.)"
+        )
+    }
+
+    fun updateFxStressCalculations() = workingCapital.updateFxStressCalculations()
+    fun setFxStressForeignCurrency(curr: String) = workingCapital.setFxStressForeignCurrency(curr)
+    fun updateHurdleRoicCalculations() = workingCapital.updateHurdleRoicCalculations()
+
+    fun importDealToHurdleRoic() {
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
+        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
+        val rev = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 100000.0)
+        val tiedUp = if (cp > 0 && vol > 0) cp * vol else (rev * 0.65)
+        val scoringProfit = dealScoringResult.value.totalNetNetProfit
+        val netProfit = if (scoringProfit > 0.0) scoringProfit else (rev * (marginState.value.marginPct / 100.0))
+
+        hurdleDealRevenue.value = session.formatCleanNum(rev)
+        hurdleNetProfit.value = session.formatCleanNum(netProfit)
+        hurdleTiedUpCapital.value = session.formatCleanNum(tiedUp)
+        hurdleCycleDays.value = dealApprovalPaymentDays.value
+        updateHurdleRoicCalculations()
+        session.emitLocalized(
+            "Deal synced to ROIC Hurdle Guardrail (Capital: ${formatCurrency(tiedUp)}, Profit: ${formatCurrency(netProfit)}, Cycle: ${hurdleCycleDays.value}d)",
+            "Сделка синхронизирована с ROIC (Капитал: ${formatCurrency(tiedUp)}, Прибыль: ${formatCurrency(netProfit)}, Цикл: ${hurdleCycleDays.value} дн.)"
+        )
+    }
+
+    // --- Plan-Fact, KAM Corridor, Give-Get, Commercial Analyst, Clients & Vault Actions ---
+    fun updatePlanFactCalculations() = kamVault.updatePlanFactCalculations()
 
     fun importPlanFromCurrentDeal() {
         val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
@@ -952,15 +574,13 @@ class BigDealViewModel(
         val days = dealApprovalPaymentDays.value.toCleanInt() ?: 30
         val rate = dealApprovalFinancingRate.value.toCleanDouble() ?: 18.0
 
-        planFactPlanPrice.value = if (sp % 1.0 == 0.0) sp.toInt().toString() else String.format(Locale.US, "%.2f", sp)
+        planFactPlanPrice.value = session.formatCleanNum(sp)
         planFactPlanVolume.value = vol.toString()
-        planFactPlanCost.value = if (cp % 1.0 == 0.0) cp.toInt().toString() else String.format(Locale.US, "%.2f", cp)
+        planFactPlanCost.value = session.formatCleanNum(cp)
         planFactPlanDays.value = days.toString()
         planFactCapitalRate.value = rate.toString()
 
-        // Default actual to plan if actual is empty or zero
-        val curActPrice = planFactActualPrice.value.toCleanDouble() ?: 0.0
-        if (curActPrice <= 0.0) {
+        if ((planFactActualPrice.value.toCleanDouble() ?: 0.0) <= 0.0) {
             planFactActualPrice.value = planFactPlanPrice.value
             planFactActualVolume.value = planFactPlanVolume.value
             planFactActualCost.value = planFactPlanCost.value
@@ -968,15 +588,10 @@ class BigDealViewModel(
         }
 
         updatePlanFactCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Plan imported from Deal Desk (Price: ${formatCurrency(sp)}, Volume: $vol pcs, Cost: ${formatCurrency(cp)})",
-                    "План импортирован из сделки (Цена: ${formatCurrency(sp)}, Объем: $vol шт, Себестоимость: ${formatCurrency(cp)})",
-                    appLanguage.value
-                )
-            )
-        }
+        session.emitLocalized(
+            "Plan imported from Deal Desk (Price: ${formatCurrency(sp)}, Volume: $vol pcs, Cost: ${formatCurrency(cp)})",
+            "План импортирован из сделки (Цена: ${formatCurrency(sp)}, Объем: $vol шт, Себестоимость: ${formatCurrency(cp)})"
+        )
     }
 
     fun applyFactToPnl() {
@@ -986,745 +601,28 @@ class BigDealViewModel(
         val totalRev = ap * av
         val totalCogs = ac * av
 
-        pnlRevenue.value = formatCleanNum(totalRev)
-        pnlCogs.value = formatCleanNum(totalCogs)
-        unitPrice.value = formatCleanNum(ap)
-        unitCost.value = formatCleanNum(ac)
+        pnlRevenue.value = session.formatCleanNum(totalRev)
+        pnlCogs.value = session.formatCleanNum(totalCogs)
+        unitPrice.value = session.formatCleanNum(ap)
+        unitCost.value = session.formatCleanNum(ac)
         updatePnlCalculations()
-
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Actual performance (${formatCurrency(totalRev)}) transferred to main P&L model",
-                    "Фактические результаты (${formatCurrency(totalRev)}) перенесены в P&L",
-                    appLanguage.value
-                )
-            )
-        }
-    }
-
-    private fun formatCleanNum(value: Double): String {
-        if (!value.isFinite()) return "0"
-        return if (value % 1.0 == 0.0 && value >= Long.MIN_VALUE && value <= Long.MAX_VALUE) {
-            value.toLong().toString()
-        } else {
-            String.format(Locale.US, "%.2f", value)
-        }
-    }
-
-    private fun attachPlanFact(deal: SavedDeal): SavedDeal = deal.copy(
-        hasPlanFactData = true,
-        planFactPlanPrice = planFactPlanPrice.value.toCleanDouble() ?: 100.0,
-        planFactPlanVolume = planFactPlanVolume.value.toCleanInt() ?: 1000,
-        planFactPlanCost = planFactPlanCost.value.toCleanDouble() ?: 60.0,
-        planFactPlanDays = planFactPlanDays.value.toCleanInt() ?: 30,
-        planFactActualPrice = planFactActualPrice.value.toCleanDouble() ?: 96.0,
-        planFactActualVolume = planFactActualVolume.value.toCleanInt() ?: 1050,
-        planFactActualCost = planFactActualCost.value.toCleanDouble() ?: 63.0,
-        planFactActualDays = planFactActualDays.value.toCleanInt() ?: 48,
-        planFactActualPenalties = planFactActualPenalties.value.toCleanDouble() ?: 0.0,
-        planFactCapitalRate = planFactCapitalRate.value.toCleanDouble() ?: 18.0
-    )
-
-    // --- Deal Saving & PDF Generation ---
-    fun saveCurrentDeal() {
-        viewModelScope.launch {
-            val p = principalAmount.value.toCleanDouble() ?: 120000.0
-            val r = annualInterestRate.value.toCleanDouble() ?: 6.5
-            val tenure = tenureMonths.value.toCleanInt() ?: 24
-
-            val deal = attachPlanFact(
-                SavedDeal(
-                    title = dealTitle.value,
-                    clientName = clientName.value,
-                    currencyCode = selectedCurrency.value,
-                    dealValue = p,
-                    interestRatePct = r,
-                    tenureMonths = tenure,
-                    frequency = paymentFrequency.value,
-                    periodicPayment = _amortization.value.periodicPayment,
-                    ltv = _ltvMetrics.value.ltv,
-                    ltvCacRatio = _ltvMetrics.value.ltvCacRatio,
-                    marginPct = _marginState.value.marginPct,
-                    markupPct = _marginState.value.markupPct,
-                    roiPct = _pnlModel.value.roiPct,
-                    paybackMonths = _pnlModel.value.paybackMonths,
-                    updatedAt = System.currentTimeMillis()
-                )
-            )
-            dealRepository.saveDeal(deal)
-                .onSuccess {
-                    _userMessage.emit(str("Deal proposal saved & synced: ${deal.title}", "Сценарий сделки сохранен и синхронизирован: ${deal.title}", appLanguage.value))
-                }
-                .onFailure {
-                    _userMessage.emit(str("Saved locally, but cloud sync failed. Check permissions or connection.", "Сохранено локально, но облачная синхронизация не удалась.", appLanguage.value))
-                }
-        }
-    }
-
-    fun loadDeal(deal: SavedDeal) {
-        dealTitle.value = deal.title
-        clientName.value = deal.clientName
-        selectedCurrency.value = deal.currencyCode
-        activeCurrency.value = CurrencyEngine.findByCode(deal.currencyCode, customCurrencies.value)
-        principalAmount.value = formatCleanNum(deal.dealValue)
-        annualInterestRate.value = deal.interestRatePct.toString()
-        tenureMonths.value = deal.tenureMonths.toString()
-        paymentFrequency.value = deal.frequency
-
-        updateFinancing()
-        onMarginCostOrPriceChanged(
-            newCost = formatCleanNum(deal.dealValue * (1.0 - deal.marginPct / 100.0)),
-            newPrice = formatCleanNum(deal.dealValue)
-        )
-        pnlRevenue.value = formatCleanNum(deal.dealValue)
-        updatePnlCalculations()
-
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        val unitPrice = if (vol > 0 && deal.dealValue > 0) deal.dealValue / vol else deal.dealValue
-        val unitCost = unitPrice * (1.0 - deal.marginPct / 100.0)
-        dealApprovalSellingPrice.value = formatCleanNum(unitPrice)
-        dealApprovalCostPrice.value = formatCleanNum(unitCost)
-        recalculateDealScoring()
-
-        if (deal.hasPlanFactData) {
-            planFactPlanPrice.value = formatCleanNum(deal.planFactPlanPrice)
-            planFactPlanVolume.value = deal.planFactPlanVolume.toString()
-            planFactPlanCost.value = formatCleanNum(deal.planFactPlanCost)
-            planFactPlanDays.value = deal.planFactPlanDays.toString()
-            planFactActualPrice.value = formatCleanNum(deal.planFactActualPrice)
-            planFactActualVolume.value = deal.planFactActualVolume.toString()
-            planFactActualCost.value = formatCleanNum(deal.planFactActualCost)
-            planFactActualDays.value = deal.planFactActualDays.toString()
-            planFactActualPenalties.value = formatCleanNum(deal.planFactActualPenalties)
-            planFactCapitalRate.value = formatCleanNum(deal.planFactCapitalRate)
-        } else {
-            val priceStr = formatCleanNum(unitPrice)
-            val costStr = formatCleanNum(unitCost)
-            planFactPlanPrice.value = priceStr
-            planFactPlanVolume.value = vol.toString()
-            planFactPlanCost.value = costStr
-            planFactActualPrice.value = priceStr
-            planFactActualVolume.value = vol.toString()
-            planFactActualCost.value = costStr
-            planFactActualPenalties.value = "0"
-        }
-        updatePlanFactCalculations()
-
-        viewModelScope.launch {
-            _userMessage.emit(str("Loaded scenario: ${deal.title}", "Загружен сценарий: ${deal.title}", appLanguage.value))
-        }
-    }
-
-    fun deleteDeal(dealId: String) {
-        viewModelScope.launch {
-            dealRepository.deleteDeal(dealId)
-                .onSuccess {
-                    _userMessage.emit(str("Deal scenario deleted", "Сценарий сделки удален", appLanguage.value))
-                }
-                .onFailure {
-                    _userMessage.emit(str("Removed locally, but cloud deletion failed.", "Удалено локально, но удаление в облаке не удалось.", appLanguage.value))
-                }
-        }
-    }
-
-    fun exportPdf(context: Context) {
-        viewModelScope.launch {
-            val currentDealValue = (dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0) * (dealApprovalVolumeUnits.value.toCleanInt() ?: 1000)
-            val deal = SavedDeal(
-                title = dealTitle.value,
-                clientName = clientName.value,
-                currencyCode = activeCurrency.value.code,
-                dealValue = if (currentDealValue > 0.0) currentDealValue else (principalAmount.value.toCleanDouble() ?: 120000.0),
-                interestRatePct = annualInterestRate.value.toCleanDouble() ?: 6.5,
-                tenureMonths = tenureMonths.value.toCleanInt() ?: 24,
-                frequency = paymentFrequency.value,
-                periodicPayment = _amortization.value.periodicPayment,
-                ltv = _ltvMetrics.value.ltv,
-                ltvCacRatio = _ltvMetrics.value.ltvCacRatio,
-                marginPct = _marginState.value.marginPct,
-                markupPct = _marginState.value.markupPct,
-                roiPct = _pnlModel.value.roiPct,
-                paybackMonths = _pnlModel.value.paybackMonths,
-                updatedAt = System.currentTimeMillis()
-            )
-
-            val result = PdfExportService.generateAndShareDealPdf(
-                context = context,
-                deal = deal,
-                amortization = _amortization.value,
-                pnl = _pnlModel.value,
-                ltv = _ltvMetrics.value,
-                margin = _marginState.value,
-                landedCost = _landedCostResult.value,
-                dealScoring = _dealScoringResult.value,
-                dealStatus = dealApprovalStatus.value,
-                giveGet = giveGetResult.value,
-                tornado = tornadoResult.value,
-                waterfall = waterfallResult.value,
-                cashGap = _cashGapResult.value,
-                planFact = _planFactResult.value
-            )
-
-            result.onSuccess {
-                _userMessage.emit("Executive PDF proposal generated successfully!")
-            }.onFailure { e ->
-                _userMessage.emit("Error generating PDF: ${e.localizedMessage}")
-            }
-        }
-    }
-
-    fun exportProductFlyerPdf(context: Context) {
-        viewModelScope.launch {
-            val result = PdfExportService.generateAndShareProductFlyerPdf(context)
-            result.onSuccess {
-                _userMessage.emit(str("LinkedIn Executive Product Flyer generated successfully!", "Рекламная листовка для LinkedIn успешно создана!", appLanguage.value))
-            }.onFailure { e ->
-                _userMessage.emit(str("Error generating flyer: ${e.localizedMessage}", "Ошибка создания листовки: ${e.localizedMessage}", appLanguage.value))
-            }
-        }
-    }
-
-    fun exportDealCsv(context: Context) {
-        viewModelScope.launch {
-            val currentDealValue = (dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0) * (dealApprovalVolumeUnits.value.toCleanInt() ?: 1000)
-            val deal = SavedDeal(
-                title = dealTitle.value,
-                clientName = clientName.value,
-                currencyCode = activeCurrency.value.code,
-                dealValue = if (currentDealValue > 0.0) currentDealValue else (principalAmount.value.toCleanDouble() ?: 120000.0),
-                interestRatePct = annualInterestRate.value.toCleanDouble() ?: 6.5,
-                tenureMonths = tenureMonths.value.toCleanInt() ?: 24,
-                frequency = paymentFrequency.value,
-                periodicPayment = _amortization.value.periodicPayment,
-                ltv = _ltvMetrics.value.ltv,
-                ltvCacRatio = _ltvMetrics.value.ltvCacRatio,
-                marginPct = _marginState.value.marginPct,
-                markupPct = _marginState.value.markupPct,
-                roiPct = _pnlModel.value.roiPct,
-                paybackMonths = _pnlModel.value.paybackMonths,
-                updatedAt = System.currentTimeMillis()
-            )
-
-            val result = CsvExportService.generateAndShareActiveDealCsv(
-                context = context,
-                deal = deal,
-                scoring = _dealScoringResult.value,
-                cashGap = _cashGapResult.value,
-                pnl = _pnlModel.value,
-                amortization = _amortization.value.schedule,
-                planFact = _planFactResult.value
-            )
-
-            result.onSuccess {
-                _userMessage.emit(str("CSV spreadsheet exported successfully!", "Финансовая модель CSV успешно экспортирована!", appLanguage.value))
-            }.onFailure { e ->
-                _userMessage.emit(str("Error exporting CSV: ${e.localizedMessage}", "Ошибка экспорта CSV: ${e.localizedMessage}", appLanguage.value))
-            }
-        }
-    }
-
-    fun exportVaultRegistryCsv(context: Context) {
-        viewModelScope.launch {
-            val deals = savedDeals.value
-            if (deals.isEmpty()) {
-                _userMessage.emit(str("No saved deals to export.", "Нет сохраненных сделок для экспорта.", appLanguage.value))
-                return@launch
-            }
-            val result = CsvExportService.generateAndShareVaultRegistryCsv(context, deals)
-            result.onSuccess {
-                _userMessage.emit(str("Deal registry exported (${deals.size} contracts)!", "Реестр сделок экспортирован (${deals.size} договоров)!", appLanguage.value))
-            }.onFailure { e ->
-                _userMessage.emit(str("Error exporting registry: ${e.localizedMessage}", "Ошибка экспорта реестра: ${e.localizedMessage}", appLanguage.value))
-            }
-        }
-    }
-
-    // --- Google Sign-In via Credential Manager ---
-    fun signInWithGoogle(activityContext: Context) {
-        viewModelScope.launch {
-            val result = authRepository.signInWithGoogle(activityContext)
-            result.onSuccess { user ->
-                _userMessage.emit("Connected as ${user.displayName ?: user.email}")
-                dealRepository.startFirestoreSync(viewModelScope)
-            }.onFailure { e ->
-                _userMessage.emit("Sign-in cancelled or failed: ${e.message}")
-            }
-        }
-    }
-
-    fun signOut() {
-        viewModelScope.launch {
-            withContext(NonCancellable) {
-                dealRepository.resetForSignOut()
-                clientRepository.resetToDefaults()
-                resetSessionUiState()
-                authRepository.signOut()
-            }
-            _userMessage.emit(str("Signed out and session cache cleared", "Выход выполнен, данные сессии очищены", appLanguage.value))
-        }
-    }
-
-    private fun resetSessionUiState() {
-        dealTitle.value = "Enterprise Platform & Support Agreement"
-        clientName.value = "Globex International"
-        selectedClientId.value = "client-omnitech-01"
-        dealApprovalStatus.value = DealApprovalStatus.DRAFT
-        ocrScanResult.value = null
-        ocrError.value = null
-        isOcrDialogOpen.value = false
-        _aiAuditState.value = AiAuditUiState.Idle
-    }
-
-    // --- Currency Selection & Custom Currencies ---
-    fun selectActiveCurrency(code: String) {
-        selectedCurrency.value = code
-        val found = CurrencyEngine.findByCode(code, customCurrencies.value)
-        activeCurrency.value = found
-        updateCurrencyConversion()
-        viewModelScope.launch {
-            _userMessage.emit(str("Currency changed: ${found.code} (${found.symbol})", "Валюта изменена: ${found.code} (${found.symbol})", appLanguage.value))
-        }
-    }
-
-    fun addCustomCurrency(code: String, name: String, symbol: String, rateToBaseUsd: Double) {
-        val safeCode = code.uppercase().trim().ifEmpty { "CUR" }
-        val safeName = name.trim().ifEmpty { safeCode }
-        val safeSym = symbol.trim().ifEmpty { safeCode }
-        val safeRate = if (rateToBaseUsd.isFinite() && rateToBaseUsd > 0.0) rateToBaseUsd else 1.0
-        val newRate = CurrencyRate(safeCode, safeName, safeSym, safeRate)
-        val list = customCurrencies.value.filter { !it.code.equals(newRate.code, ignoreCase = true) } + newRate
-        customCurrencies.value = list
-        currencyRates.value = list
-        selectActiveCurrency(newRate.code)
-    }
-
-    private val currencyNumberFormat = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).apply {
-        maximumFractionDigits = 2
-        minimumFractionDigits = 2
-    }
-
-    fun formatCurrency(amount: Double): String {
-        val sym = activeCurrency.value.symbol
-        val isNegative = amount < 0
-        val absAmount = Math.abs(amount)
-        val formattedNum = synchronized(currencyNumberFormat) {
-            currencyNumberFormat.format(absAmount)
-        }
-        val sign = if (isNegative) "-" else ""
-        return if (sym == "$" || sym == "€" || sym == "£" || sym == "¥" || sym == "₽") {
-            "$sign$sym$formattedNum"
-        } else {
-            "$sign$sym $formattedNum"
-        }
-    }
-
-    // --- Price Waterfall Triggers ---
-    fun updateWaterfallCalculations() {
-        val rsp = waterfallRsp.value.toCleanDouble() ?: 100.0
-        val vat = waterfallVat.value.toCleanDouble() ?: 20.0
-        val retMargin = waterfallRetailerMargin.value.toCleanDouble() ?: 30.0
-        val frontDisc = waterfallFrontDiscount.value.toCleanDouble() ?: 5.0
-        val backBonus = waterfallBackBonus.value.toCleanDouble() ?: 8.0
-        val logistics = waterfallLogistics.value.toCleanDouble() ?: 3.5
-        val cogs = waterfallCogs.value.toCleanDouble() ?: 25.0
-
-        _waterfallResult.value = PriceWaterfallEngine.calculate(
-            shelfRspWithVat = rsp,
-            vatRatePct = vat,
-            retailerMarginPct = retMargin,
-            frontDiscountPct = frontDisc,
-            backBonusPct = backBonus,
-            logisticsCostPerUnit = logistics,
-            supplierCogs = cogs
+        session.emitLocalized(
+            "Actual performance (${formatCurrency(totalRev)}) transferred to main P&L model",
+            "Фактические результаты (${formatCurrency(totalRev)}) перенесены в P&L"
         )
     }
 
-    fun importCogsFromLandedCost() {
-        val landed = _landedCostResult.value.landedCost
-        val unitCogs = if (landed > 500.0 && (waterfallRsp.value.toCleanDouble() ?: 100.0) < 500.0) {
-            landed / 1000.0
-        } else {
-            landed
-        }
-        waterfallCogs.value = if (unitCogs % 1.0 == 0.0) unitCogs.toInt().toString() else String.format(Locale.US, "%.1f", unitCogs)
-        updateWaterfallCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(str("COGS updated from Landed Cost: ${formatCurrency(unitCogs)}", "Себестоимость COGS обновлена из Landed Cost: ${formatCurrency(unitCogs)}", appLanguage.value))
-        }
-    }
-
-    fun applyWaterfallToMarginSolver() {
-        val net = _waterfallResult.value.netNetPrice
-        val cogs = _waterfallResult.value.supplierCogs
-        val costStr = if (cogs % 1.0 == 0.0) cogs.toInt().toString() else String.format(Locale.US, "%.2f", cogs)
-        val netStr = if (net % 1.0 == 0.0) net.toInt().toString() else String.format(Locale.US, "%.2f", net)
-        onMarginCostOrPriceChanged(newCost = costStr, newPrice = netStr)
-        dealApprovalCostPrice.value = costStr
-        dealApprovalSellingPrice.value = if (waterfallRsp.value.isNotBlank()) waterfallRsp.value else netStr
-        dealApprovalDiscountPct.value = waterfallFrontDiscount.value
-        dealApprovalBonusPct.value = waterfallBackBonus.value
-        recalculateDealScoring()
-        viewModelScope.launch {
-            _userMessage.emit(str("Net-Net price (${formatCurrency(net)}) transferred to margin solver and deal desk", "Чистая цена (${formatCurrency(net)}) передана в расчет маржи и сделку", appLanguage.value))
-        }
-    }
-
-    fun applyWaterfallToPnl() {
-        val net = _waterfallResult.value.netNetPrice
-        val cogs = _waterfallResult.value.supplierCogs
-        unitPrice.value = formatCleanNum(net)
-        unitCost.value = formatCleanNum(cogs)
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        pnlRevenue.value = formatCleanNum(net * vol)
-        pnlCogs.value = formatCleanNum(cogs * vol)
-        updatePnlCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(str("Net-Net price and cost transferred to P&L / Break-Even", "Net-Net цена и себестоимость переданы в P&L / Точку безубыточности", appLanguage.value))
-        }
-    }
-
-    // --- Promo Break-Even Triggers ---
-    fun updatePromoCalculations() {
-        val price = promoBasePrice.value.toCleanDouble() ?: 50.0
-        val cost = promoUnitCost.value.toCleanDouble() ?: 30.0
-        val disc = promoDiscountPct.value.toCleanDouble() ?: 20.0
-        val vol = promoBaseVolume.value.toCleanInt() ?: 1000
-        val simLift = promoSimulatedLift.value.toCleanDouble() ?: 50.0
-
-        _promoResult.value = PromoBreakEvenEngine.calculate(
-            regularPrice = price,
-            unitCost = cost,
-            promoDiscountPct = disc,
-            baseVolume = vol,
-            simulatedVolumeLiftPct = simLift
-        )
-    }
-
-    fun importPromoFromWaterfall() {
-        val net = _waterfallResult.value.netNetPrice
-        val cogs = _waterfallResult.value.supplierCogs
-        promoBasePrice.value = net.toString()
-        promoUnitCost.value = cogs.toString()
-        updatePromoCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(str("Promo data loaded from Price Waterfall (Price: ${formatCurrency(net)}, Cost: ${formatCurrency(cogs)})", "Данные для промо загружены из Водопада цен (Цена: ${formatCurrency(net)}, Себестоимость: ${formatCurrency(cogs)})", appLanguage.value))
-        }
-    }
-
-    // --- Payment Terms Triggers ---
-    fun updatePaymentTermsCalculations() {
-        val amt = termsDealAmount.value.toCleanDouble() ?: 100000.0
-        val days = termsDays.value.toCleanInt() ?: 60
-        val rate = termsAnnualRate.value.toCleanDouble() ?: 18.0
-        val cashDisc = termsCashDiscount.value.toCleanDouble() ?: 2.0
-
-        _paymentTermsResult.value = PaymentTermsEngine.calculate(
-            dealAmount = amt,
-            paymentDays = days,
-            annualInterestRatePct = rate,
-            cashDiscountPct = cashDisc
-        )
-    }
-
-    fun importTermsFromDeal() {
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
-        val dealTotal = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 120000.0)
-        termsDealAmount.value = dealTotal.toInt().toString()
-        termsDays.value = dealApprovalPaymentDays.value
-        termsAnnualRate.value = dealApprovalFinancingRate.value
-        updatePaymentTermsCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Deal terms imported (Amount: ${formatCurrency(dealTotal)}, Days: ${termsDays.value}, Rate: ${termsAnnualRate.value}%)",
-                    "Условия сделки импортированы (Сумма: ${formatCurrency(dealTotal)}, Отсрочка: ${termsDays.value} дн., Ставка: ${termsAnnualRate.value}%)",
-                    appLanguage.value
-                )
-            )
-        }
-    }
-
-    fun applyEffectiveNetToDeal() {
-        val npv = _paymentTermsResult.value.netPresentValue
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        if (vol > 0) {
-            val netPricePerUnit = npv / vol
-            dealApprovalSellingPrice.value = if (netPricePerUnit % 1.0 == 0.0) netPricePerUnit.toInt().toString() else String.format(Locale.US, "%.2f", netPricePerUnit)
-            recalculateDealScoring()
-        }
-        principalAmount.value = npv.toInt().toString()
-        updateFinancing()
-        pnlRevenue.value = npv.toInt().toString()
-        updatePnlCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(str("Deal amount adjusted for terms cost (NPV): ${formatCurrency(npv)}", "Сумма сделки скорректирована на стоимость отсрочки (NPV): ${formatCurrency(npv)}", appLanguage.value))
-        }
-    }
-
-    // --- Multi-Currency Credit & Hedging Methods ---
-    fun toggleCreditCurrency(code: String) {
-        val current = creditSelectedCurrencies.value.toMutableList()
-        if (current.contains(code)) {
-            if (current.size > 1) { // keep at least 1
-                current.remove(code)
-            }
-        } else {
-            if (current.size < 4) { // max 4
-                current.add(code)
-            }
-        }
-        creditSelectedCurrencies.value = current
-        rebalanceCreditAllocations()
-        updateMultiCreditCalculations()
-    }
-
-    fun setCreditCurrenciesCount(count: Int) {
-        val allAvailable = listOf("USD", "EUR", "CNY", "RUB", "BYN", "KZT")
-        val newCurrencies = allAvailable.take(count.coerceIn(1, 4))
-        creditSelectedCurrencies.value = newCurrencies
-        rebalanceCreditAllocations()
-        updateMultiCreditCalculations()
-    }
-
-    private fun rebalanceCreditAllocations() {
-        val currs = creditSelectedCurrencies.value
-        val equalShare = 100.0 / currs.size
-        val newAlloc = mutableMapOf<String, Double>()
-        currs.forEach { c -> newAlloc[c] = equalShare }
-        creditAllocations.value = newAlloc
-    }
-
-    fun updateCreditCurrencyRate(code: String, rate: Double) {
-        val current = creditCurrencyRates.value.toMutableMap()
-        current[code] = rate
-        creditCurrencyRates.value = current
-        updateMultiCreditCalculations()
-    }
-
-    fun updateCreditAllocation(code: String, alloc: Double) {
-        val current = creditAllocations.value.toMutableMap()
-        current[code] = alloc
-        creditAllocations.value = current
-        updateMultiCreditCalculations()
-    }
-
-    fun setCreditHedgeEnabled(enabled: Boolean) {
-        creditHedgeEnabled.value = enabled
-        updateMultiCreditCalculations()
-    }
-
-    fun updateMultiCreditCalculations() {
-        val amt = creditPrincipal.value.toCleanDouble() ?: 100000.0
-        val tenure = creditTenureMonths.value.toCleanInt() ?: 12
-        val hedgeRate = creditHedgeCostPct.value.toCleanDouble() ?: 2.5
-        val fxShift = creditExpectedFxShiftPct.value.toCleanDouble() ?: 8.0
-        val isHedged = creditHedgeEnabled.value
-        val currs = creditSelectedCurrencies.value
-
-        val legs = currs.map { c ->
-            val rate = creditCurrencyRates.value[c] ?: MultiCurrencyCreditEngine.getDefaultRate(c)
-            val alloc = creditAllocations.value[c] ?: (100.0 / currs.size)
-            CurrencyCreditLegInput(
-                currencyCode = c,
-                annualRatePct = rate,
-                allocationPct = alloc,
-                hedgeCostAnnualPct = hedgeRate,
-                expectedFxShiftPct = fxShift,
-                isHedged = isHedged
-            )
-        }
-
-        _multiCreditResult.value = MultiCurrencyCreditEngine.calculate(
-            dealAmount = amt,
-            baseCurrencyCode = activeCurrency.value.code,
-            tenureMonths = tenure,
-            legsInput = legs,
-            rates = currencyRates.value
-        )
-    }
-
-    fun importDealToMultiCredit() {
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
-        val p = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 120000.0)
-        val t = tenureMonths.value.toCleanInt() ?: 12
-        creditPrincipal.value = p.toInt().toString()
-        creditTenureMonths.value = t.toString()
-        updateMultiCreditCalculations()
-        viewModelScope.launch {
-            _userMessage.emit(str("Deal data imported to multi-currency credit calculator: ${formatCurrency(p)}", "Данные сделки импортированы в мультивалютный кредитный калькулятор: ${formatCurrency(p)}", appLanguage.value))
-        }
-    }
-
-    fun applyCreditHedgedRateToFinancing() {
-        val hedgedRate = _multiCreditResult.value.weightedEffectiveRateWithHedgePct
-        val rateFormatted = String.format(java.util.Locale.US, "%.1f", hedgedRate)
-        annualInterestRate.value = rateFormatted
-        updateFinancing()
-        dealApprovalFinancingRate.value = rateFormatted
-        recalculateDealScoring()
-        viewModelScope.launch {
-            _userMessage.emit(str("Deal financing rate updated: ${annualInterestRate.value}% (basket & hedge adjusted)", "Ставка финансирования сделки обновлена: ${annualInterestRate.value}% (с учетом корзины и хеджа)", appLanguage.value))
-        }
-    }
-
-    // --- Cash Gap & Working Capital Modeler ---
-    fun updateCashGapCalculations() {
-        val rev = cashGapRevenue.value.toCleanDouble() ?: 100000.0
-        val cogs = cashGapCogs.value.toCleanDouble() ?: 70000.0
-        val prepay = cashGapPrepaidPct.value.toCleanDouble() ?: 20.0
-        val dpo = cashGapSupplierDays.value.toCleanInt() ?: 30
-        val dso = cashGapCustomerDays.value.toCleanInt() ?: 60
-        val dio = cashGapInventoryDays.value.toCleanInt() ?: 15
-        val rate = cashGapOverdraftRate.value.toCleanDouble() ?: 22.0
-        val advPct = cashGapFactoringAdvancePct.value.toCleanDouble() ?: 85.0
-        val feePct = cashGapFactoringFeePct.value.toCleanDouble() ?: 1.5
-        val factRate = cashGapFactoringRatePct.value.toCleanDouble() ?: 20.0
-
-        _cashGapResult.value = CashGapEngine.calculate(
-            dealRevenue = rev,
-            cogsTotal = cogs,
-            prepaidPct = prepay,
-            supplierPayDays = dpo,
-            customerPayDays = dso,
-            inventoryDays = dio,
-            overdraftRatePct = rate,
-            factoringAdvancePct = advPct,
-            factoringFeePct = feePct,
-            factoringInterestRatePct = factRate
-        )
-    }
-
-    fun importDealToCashGap() {
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
-        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
-        val rev = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 100000.0)
-        val realCogs = if (cp > 0 && vol > 0) cp * vol else (rev * (1.0 - (_marginState.value.marginPct / 100.0)))
-
-        cashGapRevenue.value = rev.toInt().toString()
-        cashGapCogs.value = realCogs.toInt().toString()
-        cashGapCustomerDays.value = dealApprovalPaymentDays.value
-        cashGapOverdraftRate.value = dealApprovalFinancingRate.value
-        updateCashGapCalculations()
-
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Deal imported to Cash Gap (Revenue: ${formatCurrency(rev)}, COGS: ${formatCurrency(realCogs)}, DSO: ${cashGapCustomerDays.value}d)",
-                    "Сделка импортирована в кассовый разрыв (Выручка: ${formatCurrency(rev)}, Себестоимость: ${formatCurrency(realCogs)}, Отсрочка: ${cashGapCustomerDays.value} дн.)",
-                    appLanguage.value
-                )
-            )
-        }
-    }
-
-    // --- FX Stress-Test & Margin Wipeout Threshold ---
-    fun updateFxStressCalculations() {
-        val price = fxContractPrice.value.toCleanDouble() ?: 1000000.0
-        val foreignCost = fxCogsForeign.value.toCleanDouble() ?: 8000.0
-        val curr = fxForeignCurrency.value
-        val spot = fxSpotRate.value.toCleanDouble() ?: 95.0
-        val hedgePct = fxHedgedPct.value.toCleanDouble() ?: 30.0
-        val hedgeR = fxHedgeRate.value.toCleanDouble() ?: 96.0
-        val domestic = fxDomesticCost.value.toCleanDouble() ?: 50000.0
-
-        _fxStressResult.value = FxStressTestEngine.calculate(
-            contractPrice = price,
-            cogsForeignAmount = foreignCost,
-            foreignCurrencyCode = curr,
-            spotRate = spot,
-            hedgedPct = hedgePct,
-            hedgeRate = hedgeR,
-            domesticCost = domestic
-        )
-    }
-
-    fun setFxStressForeignCurrency(curr: String) {
-        fxForeignCurrency.value = curr
-        val defaultRate = when (curr) {
-            "USD" -> 95.0
-            "EUR" -> 104.0
-            "CNY" -> 13.2
-            "BYN" -> 29.5
-            "KZT" -> 0.20
-            else -> 1.0
-        }
-        fxSpotRate.value = defaultRate.toString()
-        fxHedgeRate.value = String.format(java.util.Locale.US, "%.1f", defaultRate * 1.02)
-        updateFxStressCalculations()
-    }
-
-    // --- Hurdle Rate / ROIC Guardrail ---
-    fun updateHurdleRoicCalculations() {
-        val rev = hurdleDealRevenue.value.toCleanDouble() ?: 100000.0
-        val profit = hurdleNetProfit.value.toCleanDouble() ?: 7000.0
-        val capital = hurdleTiedUpCapital.value.toCleanDouble() ?: 65000.0
-        val days = hurdleCycleDays.value.toCleanInt() ?: 90
-        val hurdle = hurdleCorporateRate.value.toCleanDouble() ?: 20.0
-
-        _hurdleRoicResult.value = HurdleRoicEngine.calculate(
-            dealRevenue = rev,
-            dealNetProfit = profit,
-            tiedUpCapital = capital,
-            cycleDays = days,
-            corporateHurdleRatePct = hurdle
-        )
-    }
-
-    fun importDealToHurdleRoic() {
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
-        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
-        val rev = if (sp > 0 && vol > 0) sp * vol else (principalAmount.value.toCleanDouble() ?: 100000.0)
-        val tiedUp = if (cp > 0 && vol > 0) cp * vol else (rev * 0.65)
-        val scoringProfit = _dealScoringResult.value.totalNetNetProfit
-        val netProfit = if (scoringProfit > 0.0) scoringProfit else (rev * (_marginState.value.marginPct / 100.0))
-
-        hurdleDealRevenue.value = rev.toInt().toString()
-        hurdleNetProfit.value = netProfit.toInt().toString()
-        hurdleTiedUpCapital.value = tiedUp.toInt().toString()
-        hurdleCycleDays.value = dealApprovalPaymentDays.value
-        updateHurdleRoicCalculations()
-
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Deal synced to ROIC Hurdle Guardrail (Capital: ${formatCurrency(tiedUp)}, Profit: ${formatCurrency(netProfit)}, Cycle: ${hurdleCycleDays.value}d)",
-                    "Сделка синхронизирована с ROIC (Капитал: ${formatCurrency(tiedUp)}, Прибыль: ${formatCurrency(netProfit)}, Цикл: ${hurdleCycleDays.value} дн.)",
-                    appLanguage.value
-                )
-            )
-        }
-    }
-
-    // --- KAM Negotiation Corridor & SLA ---
-    fun updateKamCorridor() {
-        val price = kamBaseShelfPrice.value.toCleanDouble() ?: 100.0
-        val cogs = kamBaseCogs.value.toCleanDouble() ?: 60.0
-        _kamCorridorResult.value = KamNegotiationEngine.calculateCorridor(
-            baseShelfPrice = price,
-            baseCogs = cogs,
-            activeType = kamActiveScenarioType.value
-        )
-        updateKamOnePager()
-        updateGiveGetCalculation()
-    }
-
-    fun selectKamScenario(type: KamScenarioType) {
-        kamActiveScenarioType.value = type
-        updateKamCorridor()
-    }
+    fun updateKamCorridor() = kamVault.updateKamCorridor()
+    fun selectKamScenario(type: KamScenarioType) = kamVault.selectKamScenario(type)
+    fun updateKamSla() = kamVault.updateKamSla()
+    fun updateKamOnePager() = kamVault.updateKamOnePager()
+    fun toggleKamOnePager(show: Boolean) = kamVault.toggleKamOnePager(show)
 
     fun applyKamScenarioToDeal() {
-        val scenario = _kamCorridorResult.value.activeScenario
-        val costStr = formatCleanNum(scenario.cogs)
-        val netStr = formatCleanNum(scenario.netNetPrice)
-        val shelfStr = formatCleanNum(scenario.shelfPrice)
-        marginCostInput.value = costStr
-        marginPriceInput.value = netStr
+        val scenario = kamCorridorResult.value.activeScenario
+        val costStr = session.formatCleanNum(scenario.cogs)
+        val netStr = session.formatCleanNum(scenario.netNetPrice)
+        val shelfStr = session.formatCleanNum(scenario.shelfPrice)
         onMarginCostOrPriceChanged(newCost = costStr, newPrice = netStr)
 
         dealApprovalCostPrice.value = costStr
@@ -1735,289 +633,270 @@ class BigDealViewModel(
         recalculateDealScoring()
 
         val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        principalAmount.value = formatCleanNum(scenario.netNetPrice * vol)
+        principalAmount.value = session.formatCleanNum(scenario.netNetPrice * vol)
         updateFinancing()
 
-        viewModelScope.launch {
-            _userMessage.emit(str("Applied '${scenario.nameEn}' scenario to deal pricing & desk", "Применен сценарий '${scenario.nameRu}' к сделке и согласованию", appLanguage.value))
-        }
-    }
-
-    fun updateKamSla() {
-        val deal = kamDealAmount.value.toCleanDouble() ?: 100000.0
-        val fillRate = kamFillRatePct.value.toCleanDouble() ?: 95.0
-        val penalty = kamPenaltyRatePct.value.toCleanDouble() ?: 12.0
-        val slot = kamTimeSlotPenalty.value.toCleanDouble() ?: 1500.0
-        val baseMargin = _kamCorridorResult.value.activeScenario.marginPct.takeIf { it > 0 } ?: 30.0
-
-        _kamSlaResult.value = KamNegotiationEngine.calculateRetailSlaPenalty(
-            dealAmount = deal,
-            plannedFillRatePct = fillRate,
-            penaltyRatePct = penalty,
-            timeSlotPenaltyAmount = slot,
-            baseGrossMarginPct = baseMargin
-        )
-        updateKamOnePager()
-    }
-
-    fun updateKamOnePager() {
-        val fxRate = _fxStressResult.value.marginWipeoutRate
-        val fxCurr = fxForeignCurrency.value
-        val fxBuffer = _fxStressResult.value.safetyBufferPoints
-        val peakGap = _cashGapResult.value.peakCashDeficit
-
-        _kamOnePagerSummary.value = KamNegotiationEngine.buildOnePagerSummary(
-            corridorResult = _kamCorridorResult.value,
-            slaResult = _kamSlaResult.value,
-            criticalFxRate = fxRate,
-            fxCurrencyCode = fxCurr,
-            fxSafetyBufferPoints = fxBuffer,
-            peakCashGapAmount = peakGap,
-            corporateWaccRatePct = hurdleCorporateRate.value.toCleanDouble() ?: 20.0
+        session.emitLocalized(
+            "Applied '${scenario.nameEn}' scenario to deal pricing & desk",
+            "Применен сценарий '${scenario.nameRu}' к сделке и согласованию"
         )
     }
 
-    fun toggleKamOnePager(show: Boolean) {
-        showKamOnePagerDialog.value = show
-        if (show) {
-            updateKamOnePager()
-        }
-    }
+    fun setGiveConcessionType(type: GiveConcessionType) = kamVault.setGiveConcessionType(type)
+    fun setGiveConcessionValue(value: String) = kamVault.setGiveConcessionValue(value)
+    fun updateGiveGetCalculation() = kamVault.updateGiveGetCalculation()
 
-    // --- Give-Get Concession Balancing Engine ---
-    fun setGiveConcessionType(type: GiveConcessionType) {
-        giveConcessionType.value = type
-        when (type) {
-            GiveConcessionType.PAYMENT_DEFERRAL -> giveConcessionValue.value = "30"
-            GiveConcessionType.PRICE_DISCOUNT -> giveConcessionValue.value = "3"
-            GiveConcessionType.RETRO_BONUS -> giveConcessionValue.value = "2"
-            GiveConcessionType.FREIGHT_DELIVERY -> giveConcessionValue.value = "3.5"
-            GiveConcessionType.LISTING_FEE -> giveConcessionValue.value = "3000"
-        }
-        updateGiveGetCalculation()
-    }
-
-    fun setGiveConcessionValue(value: String) {
-        giveConcessionValue.value = value
-        updateGiveGetCalculation()
-    }
-
-    fun updateGiveGetCalculation() {
-        val scenario = _kamCorridorResult.value.activeScenario
-        val price = scenario.shelfPrice
-        val cogs = scenario.cogs
-        val disc = scenario.frontDiscountPct
-        val bonus = scenario.backBonusPct
-        val days = scenario.paymentDays
-        val wacc = hurdleCorporateRate.value.toCleanDouble() ?: 18.0
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        val concessionVal = giveConcessionValue.value.toCleanDouble() ?: 30.0
-
-        _giveGetResult.value = GiveGetEngine.calculate(
-            sellingPrice = price,
-            cogs = cogs,
-            baseVolume = vol,
-            currentDiscountPct = disc,
-            currentBonusPct = bonus,
-            currentPaymentDays = days,
-            waccRatePct = wacc,
-            concessionType = giveConcessionType.value,
-            concessionValue = concessionVal
-        )
-    }
-
-    // --- Commercial Analyst: Trade-Off, Basket, Rebates ---
-    fun updateTradeOff() {
-        val deal = tradeOffDealAmount.value.toCleanDouble() ?: 100000.0
-        val disc = tradeOffDiscountPct.value.toCleanDouble() ?: 3.0
-        val days = tradeOffDeferralDays.value.toCleanInt() ?: 30
-        val rate = tradeOffAnnualRate.value.toCleanDouble() ?: 20.0
-
-        _tradeOffResult.value = CommercialAnalystEngine.calculateTradeOff(
-            dealAmount = deal,
-            discountPct = disc,
-            deferralDays = days,
-            annualCapitalRatePct = rate
-        )
-    }
-
-    fun updateBasketItem(id: String, newVolume: Double, newPrice: Double, newCogs: Double) {
-        val updated = _basketItems.value.map { item ->
-            if (item.id == id) {
-                item.copy(volume = newVolume, unitPrice = newPrice, unitCogs = newCogs)
-            } else item
-        }
-        _basketItems.value = updated
-        _blendedBasketResult.value = CommercialAnalystEngine.calculateBlendedBasket(updated)
-    }
-
-    fun resetBasketToDefaults() {
-        _basketItems.value = CommercialAnalystEngine.DEFAULT_BASKET_ITEMS
-        _blendedBasketResult.value = CommercialAnalystEngine.calculateBlendedBasket(CommercialAnalystEngine.DEFAULT_BASKET_ITEMS)
-    }
-
-    fun updateRebateSimulation() {
-        val vol = rebateActualVolume.value.toCleanDouble() ?: 120000.0
-        val margin = rebateBaseMarginPct.value.toCleanDouble() ?: 30.0
-        _rebateSimulationResult.value = CommercialAnalystEngine.simulateRebateTiers(
-            actualVolume = vol,
-            baseGrossMarginPct = margin
-        )
-    }
+    fun updateTradeOff() = kamVault.updateTradeOff()
+    fun updateBasketItem(id: String, newVolume: Double, newPrice: Double, newCogs: Double) =
+        kamVault.updateBasketItem(id, newVolume, newPrice, newCogs)
+    fun resetBasketToDefaults() = kamVault.resetBasketToDefaults()
+    fun updateRebateSimulation() = kamVault.updateRebateSimulation()
 
     fun applyTradeOffToTerms() {
         val days = tradeOffDeferralDays.value.toCleanInt() ?: 30
         val deal = tradeOffDealAmount.value.toCleanDouble() ?: 100000.0
         val rate = tradeOffAnnualRate.value.toCleanDouble() ?: 20.0
         termsDays.value = days.toString()
-        termsDealAmount.value = deal.toInt().toString()
+        termsDealAmount.value = session.formatCleanNum(deal)
         termsAnnualRate.value = rate.toString()
         updatePaymentTermsCalculations()
 
         dealApprovalPaymentDays.value = days.toString()
         dealApprovalFinancingRate.value = rate.toString()
         recalculateDealScoring()
-
-        viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Trade-off terms transferred to Payment Terms and Deal (Days: $days, Rate: $rate%)",
-                    "Условия отсрочки перенесены в условия платежа и сделку (Дней: $days, Ставка: $rate%)",
-                    appLanguage.value
-                )
-            )
-        }
+        session.emitLocalized(
+            "Trade-off terms transferred to Payment Terms and Deal (Days: $days, Rate: $rate%)",
+            "Условия отсрочки перенесены в условия платежа и сделку (Дней: $days, Ставка: $rate%)"
+        )
     }
 
     fun applyBasketMarginToDeal() {
-        val blended = _blendedBasketResult.value
-        val blendedMargin = blended.blendedMarginPct
+        val blendedMargin = blendedBasketResult.value.blendedMarginPct
         applyMarginPercentPreset(blendedMargin)
 
         val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
         if (blendedMargin in 0.01..99.99) {
             val newPrice = cp / (1.0 - blendedMargin / 100.0)
-            val priceStr = if (newPrice % 1.0 == 0.0) newPrice.toInt().toString() else String.format(Locale.US, "%.2f", newPrice)
-            dealApprovalSellingPrice.value = priceStr
+            dealApprovalSellingPrice.value = session.formatCleanNum(newPrice)
             recalculateDealScoring()
         }
+        val pctLabel = String.format(Locale.US, "%.1f", blendedMargin)
+        session.emitLocalized(
+            "Blended basket margin ($pctLabel%) applied to Margin Solver and Deal",
+            "Средневзвешенная маржа корзины ($pctLabel%) применена к расчету маржи и сделке"
+        )
+    }
 
+    fun recalculateDealScoring() = kamVault.recalculateDealScoring()
+    fun submitDealForApproval() = kamVault.submitDealForApproval()
+    fun approveDeal() = kamVault.approveDeal()
+    fun rejectDeal(reason: String = "") = kamVault.rejectDeal(reason)
+    fun selectClient(clientId: String) = kamVault.selectClient(clientId)
+    fun saveClientProfile(profile: ClientNegotiationProfile, isNew: Boolean) =
+        kamVault.saveClientProfile(profile, isNew)
+    fun deleteClientProfile(clientId: String) = kamVault.deleteClientProfile(clientId)
+    fun addNegotiationRound(
+        clientId: String,
+        buyerDemands: String,
+        kamCounter: String,
+        discountPct: Double,
+        bonusPct: Double,
+        termsDays: Int,
+        outcome: String
+    ) = kamVault.addNegotiationRound(clientId, buyerDemands, kamCounter, discountPct, bonusPct, termsDays, outcome)
+
+    fun saveCurrentDeal() {
+        kamVault.saveDealScenario(
+            principal = principalAmount.value.toCleanDouble() ?: 120000.0,
+            interestRatePct = annualInterestRate.value.toCleanDouble() ?: 6.5,
+            tenureMonths = tenureMonths.value.toCleanInt() ?: 24,
+            frequency = paymentFrequency.value,
+            periodicPayment = amortization.value.periodicPayment,
+            ltv = ltvMetrics.value.ltv,
+            ltvCacRatio = ltvMetrics.value.ltvCacRatio,
+            marginPct = marginState.value.marginPct,
+            markupPct = marginState.value.markupPct,
+            roiPct = pnlModel.value.roiPct,
+            paybackMonths = pnlModel.value.paybackMonths
+        )
+    }
+
+    fun loadDeal(deal: SavedDeal) {
+        dealTitle.value = deal.title
+        clientName.value = deal.clientName
+        selectedCurrency.value = deal.currencyCode
+        activeCurrency.value = CurrencyEngine.findByCode(deal.currencyCode, customCurrencies.value)
+        principalAmount.value = session.formatCleanNum(deal.dealValue)
+        annualInterestRate.value = deal.interestRatePct.toString()
+        tenureMonths.value = deal.tenureMonths.toString()
+        paymentFrequency.value = deal.frequency
+
+        updateFinancing()
+        onMarginCostOrPriceChanged(
+            newCost = session.formatCleanNum(deal.dealValue * (1.0 - deal.marginPct / 100.0)),
+            newPrice = session.formatCleanNum(deal.dealValue)
+        )
+        pnlRevenue.value = session.formatCleanNum(deal.dealValue)
+        updatePnlCalculations()
+
+        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
+        val unitP = if (vol > 0 && deal.dealValue > 0) deal.dealValue / vol else deal.dealValue
+        val unitC = unitP * (1.0 - deal.marginPct / 100.0)
+        dealApprovalSellingPrice.value = session.formatCleanNum(unitP)
+        dealApprovalCostPrice.value = session.formatCleanNum(unitC)
+        recalculateDealScoring()
+
+        if (deal.hasPlanFactData) {
+            planFactPlanPrice.value = session.formatCleanNum(deal.planFactPlanPrice)
+            planFactPlanVolume.value = deal.planFactPlanVolume.toString()
+            planFactPlanCost.value = session.formatCleanNum(deal.planFactPlanCost)
+            planFactPlanDays.value = deal.planFactPlanDays.toString()
+            planFactActualPrice.value = session.formatCleanNum(deal.planFactActualPrice)
+            planFactActualVolume.value = deal.planFactActualVolume.toString()
+            planFactActualCost.value = session.formatCleanNum(deal.planFactActualCost)
+            planFactActualDays.value = deal.planFactActualDays.toString()
+            planFactActualPenalties.value = session.formatCleanNum(deal.planFactActualPenalties)
+            planFactCapitalRate.value = session.formatCleanNum(deal.planFactCapitalRate)
+        } else {
+            val priceStr = session.formatCleanNum(unitP)
+            val costStr = session.formatCleanNum(unitC)
+            planFactPlanPrice.value = priceStr
+            planFactPlanVolume.value = vol.toString()
+            planFactPlanCost.value = costStr
+            planFactActualPrice.value = priceStr
+            planFactActualVolume.value = vol.toString()
+            planFactActualCost.value = costStr
+            planFactActualPenalties.value = "0"
+        }
+        updatePlanFactCalculations()
+
+        session.emitLocalized(
+            "Loaded scenario: ${deal.title}",
+            "Загружен сценарий: ${deal.title}"
+        )
+    }
+
+    fun deleteDeal(dealId: String) = kamVault.deleteDeal(dealId)
+
+    // --- Export, Auth & AI / OCR ---
+    private fun buildActiveSavedDeal(): SavedDeal {
+        val currentDealValue = (dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0) *
+            (dealApprovalVolumeUnits.value.toCleanInt() ?: 1000)
+        return SavedDeal(
+            title = dealTitle.value,
+            clientName = clientName.value,
+            currencyCode = activeCurrency.value.code,
+            dealValue = if (currentDealValue > 0.0) currentDealValue else (principalAmount.value.toCleanDouble() ?: 120000.0),
+            interestRatePct = annualInterestRate.value.toCleanDouble() ?: 6.5,
+            tenureMonths = tenureMonths.value.toCleanInt() ?: 24,
+            frequency = paymentFrequency.value,
+            periodicPayment = amortization.value.periodicPayment,
+            ltv = ltvMetrics.value.ltv,
+            ltvCacRatio = ltvMetrics.value.ltvCacRatio,
+            marginPct = marginState.value.marginPct,
+            markupPct = marginState.value.markupPct,
+            roiPct = pnlModel.value.roiPct,
+            paybackMonths = pnlModel.value.paybackMonths,
+            updatedAt = System.currentTimeMillis()
+        )
+    }
+
+    fun exportPdf(context: Context) {
+        aiExport.exportPdf(
+            context = context,
+            deal = buildActiveSavedDeal(),
+            amortization = amortization.value,
+            pnl = pnlModel.value,
+            ltv = ltvMetrics.value,
+            margin = marginState.value,
+            landedCost = landedCostResult.value,
+            dealScoring = dealScoringResult.value,
+            dealStatus = dealApprovalStatus.value,
+            giveGet = giveGetResult.value,
+            tornado = tornadoResult.value,
+            waterfall = waterfallResult.value,
+            cashGap = cashGapResult.value,
+            planFact = planFactResult.value
+        )
+    }
+
+    fun exportProductFlyerPdf(context: Context) = aiExport.exportProductFlyerPdf(context)
+
+    fun exportDealCsv(context: Context) {
+        aiExport.exportDealCsv(
+            context = context,
+            deal = buildActiveSavedDeal(),
+            scoring = dealScoringResult.value,
+            cashGap = cashGapResult.value,
+            pnl = pnlModel.value,
+            amortization = amortization.value,
+            planFact = planFactResult.value
+        )
+    }
+
+    fun exportVaultRegistryCsv(context: Context) =
+        aiExport.exportVaultRegistryCsv(context, savedDeals.value)
+
+    fun signInWithGoogle(activityContext: Context) {
         viewModelScope.launch {
-            _userMessage.emit(
-                str(
-                    "Blended basket margin (${String.format(Locale.US, "%.1f", blendedMargin)}%) applied to Margin Solver and Deal",
-                    "Средневзвешенная маржа корзины (${String.format(Locale.US, "%.1f", blendedMargin)}%) применена к расчету маржи и сделке",
-                    appLanguage.value
-                )
+            val result = authRepository.signInWithGoogle(activityContext)
+            result.onSuccess { user ->
+                session.emitMessage("Connected as ${user.displayName ?: user.email}")
+                dealRepository.startFirestoreSync(viewModelScope)
+                clientRepository.startFirestoreSync(viewModelScope)
+            }.onFailure { e ->
+                session.emitMessage("Sign-in cancelled or failed: ${e.message}")
+            }
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                clientRepository.stopFirestoreSync()
+                dealRepository.resetForSignOut()
+                clientRepository.resetToDefaults()
+                clientRepository.refreshFirestoreInstanceAfterReset()
+                session.resetSessionMetadata()
+                kamVault.resetApprovalSession()
+                aiExport.resetSessionState()
+                authRepository.signOut()
+            }
+            session.emitLocalized(
+                "Signed out and session cache cleared",
+                "Выход выполнен, данные сессии очищены"
             )
         }
     }
 
-    // 13. AI Express Deal Risk Auditor (Firebase AI Logic Gemini 3.8 Flash)
-    private val aiRiskAuditor = AiDealRiskAuditor()
-    private val _aiAuditState = MutableStateFlow<AiAuditUiState>(AiAuditUiState.Idle)
-    val aiAuditState: StateFlow<AiAuditUiState> = _aiAuditState.asStateFlow()
-
-    fun resetAiAuditState() {
-        _aiAuditState.value = AiAuditUiState.Idle
-    }
+    fun resetAiAuditState() = aiExport.resetAiAuditState()
 
     fun runExpressAudit(forceLocal: Boolean = false) {
-        viewModelScope.launch {
-            _aiAuditState.value = AiAuditUiState.Loading
-            val margin = _marginState.value
-            val waterfall = _waterfallResult.value
-            val terms = _paymentTermsResult.value
-            val cashGap = _cashGapResult.value
-            val promo = _promoResult.value
-            val isRu = appLanguage.value == com.example.ui.i18n.AppLanguage.RU
-
-            val result = aiRiskAuditor.auditDeal(
-                dealTitle = dealTitle.value,
-                clientName = clientName.value,
-                currency = activeCurrency.value.code,
-                costPrice = margin.cost,
-                sellingPrice = margin.sellingPrice,
-                grossMarginPct = margin.marginPct,
-                netNetPrice = waterfall.netNetPrice,
-                netNetMarginPct = waterfall.supplierMarginPct,
-                paymentTermsDays = terms.paymentDays,
-                financingCostPct = terms.annualInterestRatePct,
-                cashGapDays = cashGap.cashConversionCycleDays,
-                logisticsAndRebatesPct = waterfall.backBonusPct + waterfall.frontDiscountPct,
-                breakEvenVolumeLiftPct = promo.breakEvenVolumeLiftPct,
-                languageRu = isRu,
-                forceLocal = forceLocal
-            )
-
-            result.fold(
-                onSuccess = { audit ->
-                    _aiAuditState.value = AiAuditUiState.Success(audit)
-                },
-                onFailure = { error ->
-                    _aiAuditState.value = AiAuditUiState.Error(error.localizedMessage ?: "Audit failed")
-                }
-            )
-        }
+        aiExport.runExpressAudit(
+            margin = marginState.value,
+            waterfall = waterfallResult.value,
+            terms = paymentTermsResult.value,
+            cashGap = cashGapResult.value,
+            promo = promoResult.value,
+            forceLocal = forceLocal
+        )
     }
 
-    fun runLocalAudit() {
-        runExpressAudit(forceLocal = true)
-    }
-
-    // 14. AI OCR Document & Price List Scanner (Firebase AI Logic Gemini 3.8 Flash)
-    private val commercialOcrScanner = CommercialOcrScanner()
-    val isOcrScanning = MutableStateFlow(false)
-    val ocrScanResult = MutableStateFlow<OcrExtractedDealData?>(null)
-    val ocrError = MutableStateFlow<String?>(null)
-    val isOcrDialogOpen = MutableStateFlow(false)
-
-    fun openOcrDialog() {
-        ocrError.value = null
-        isOcrDialogOpen.value = true
-    }
-
-    fun closeOcrDialog() {
-        isOcrDialogOpen.value = false
-    }
-
-    fun scanDocumentBitmap(bitmap: Bitmap) {
-        viewModelScope.launch {
-            isOcrScanning.value = true
-            ocrError.value = null
-            ocrScanResult.value = null
-
-            val result = commercialOcrScanner.scanDocumentImage(bitmap)
-            result.fold(
-                onSuccess = { data ->
-                    isOcrScanning.value = false
-                    ocrScanResult.value = data
-                },
-                onFailure = { error ->
-                    isOcrScanning.value = false
-                    val msg = error.localizedMessage ?: "OCR scanning failed"
-                    ocrError.value = msg
-                    _userMessage.emit(str("OCR error: $msg", "Ошибка OCR: $msg", appLanguage.value))
-                }
-            )
-        }
-    }
+    fun runLocalAudit() = runExpressAudit(forceLocal = true)
+    fun openOcrDialog() = aiExport.openOcrDialog()
+    fun closeOcrDialog() = aiExport.closeOcrDialog()
+    fun scanDocumentBitmap(bitmap: Bitmap) = aiExport.scanDocumentBitmap(bitmap)
 
     fun applyOcrExtractedData(rawData: OcrExtractedDealData) {
         val data = CommercialOcrScanner.sanitizeOcrResult(rawData)
         if (data.clientName.isNotBlank()) {
             clientName.value = data.clientName
         }
-        val matchedCurrency = customCurrencies.value.firstOrNull {
-            it.code.equals(data.currencyCode, ignoreCase = true)
-        }
-        if (matchedCurrency != null) {
-            selectedCurrency.value = matchedCurrency.code
-            activeCurrency.value = matchedCurrency
-        }
+        session.syncCurrencyIfKnown(data.currencyCode)
         data.shelfPriceRsp?.let {
-            waterfallRsp.value = formatCleanNum(it)
-            dealApprovalSellingPrice.value = waterfallRsp.value
+            val s = session.formatCleanNum(it)
+            waterfallRsp.value = s
+            dealApprovalSellingPrice.value = s
         }
         data.vatRatePct?.let {
             waterfallVat.value = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.1f", it)
@@ -2036,10 +915,10 @@ class BigDealViewModel(
             dealApprovalBonusPct.value = s
         }
         data.logisticsCostPerUnit?.let {
-            waterfallLogistics.value = formatCleanNum(it)
+            waterfallLogistics.value = session.formatCleanNum(it)
         }
         data.supplierCogs?.let {
-            val s = formatCleanNum(it)
+            val s = session.formatCleanNum(it)
             waterfallCogs.value = s
             dealApprovalCostPrice.value = s
             marginCostInput.value = s
@@ -2059,189 +938,9 @@ class BigDealViewModel(
         updateCurrencyConversion()
         isOcrDialogOpen.value = false
 
-        viewModelScope.launch {
-            _userMessage.emit(str("OCR terms applied to Deal Desk!", "Коммерческие условия OCR применены к сделке!", appLanguage.value))
-        }
-    }
-
-    // 14. Deal Approval, Deal Scoring (Traffic Light) & Client Negotiation History
-    private val clientRepository = ClientNegotiationRepository()
-    val clientsList: StateFlow<List<ClientNegotiationProfile>> = clientRepository.clients
-
-    val selectedClientId = MutableStateFlow<String?>("client-omnitech-01")
-    val selectedClient: StateFlow<ClientNegotiationProfile?> = combine(clientsList, selectedClientId) { list, id ->
-        list.firstOrNull { it.id == id } ?: list.firstOrNull()
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    // Deal Approval Inputs
-    val dealApprovalSellingPrice = MutableStateFlow("100.0")
-    val dealApprovalCostPrice = MutableStateFlow("55.0")
-    val dealApprovalVolumeUnits = MutableStateFlow("1500")
-    val dealApprovalDiscountPct = MutableStateFlow("5.0")
-    val dealApprovalBonusPct = MutableStateFlow("8.0")
-    val dealApprovalPaymentDays = MutableStateFlow("30")
-    val dealApprovalFinancingRate = MutableStateFlow("18.0")
-    val dealApprovalStatus = MutableStateFlow(DealApprovalStatus.DRAFT)
-
-    private val _dealScoringResult = MutableStateFlow(
-        DealScoringEngine.calculate(
-            sellingPrice = 100.0,
-            costPrice = 55.0,
-            volumeUnits = 1500,
-            onInvoiceDiscountPct = 5.0,
-            offInvoiceBonusPct = 8.0,
-            paymentTermsDays = 30,
-            financingAnnualRatePct = 18.0,
-            languageRu = false
+        session.emitLocalized(
+            "OCR terms applied to Deal Desk!",
+            "Коммерческие условия OCR применены к сделке!"
         )
-    )
-    val dealScoringResult: StateFlow<DealScoringResult> = _dealScoringResult.asStateFlow()
-
-    fun recalculateDealScoring() {
-        val sp = dealApprovalSellingPrice.value.toCleanDouble() ?: 100.0
-        val cp = dealApprovalCostPrice.value.toCleanDouble() ?: 55.0
-        val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        val disc = dealApprovalDiscountPct.value.toCleanDouble() ?: 0.0
-        val bonus = dealApprovalBonusPct.value.toCleanDouble() ?: 0.0
-        val days = dealApprovalPaymentDays.value.toCleanInt() ?: 30
-        val rate = dealApprovalFinancingRate.value.toCleanDouble() ?: 18.0
-        val isRu = appLanguage.value == com.example.ui.i18n.AppLanguage.RU
-
-        _dealScoringResult.value = DealScoringEngine.calculate(
-            sellingPrice = sp,
-            costPrice = cp,
-            volumeUnits = vol,
-            onInvoiceDiscountPct = disc,
-            offInvoiceBonusPct = bonus,
-            paymentTermsDays = days,
-            financingAnnualRatePct = rate,
-            languageRu = isRu
-        )
-    }
-
-    fun submitDealForApproval() {
-        dealApprovalStatus.value = DealApprovalStatus.PENDING_APPROVAL
-        viewModelScope.launch {
-            _userMessage.emit(str("Deal submitted for approval (Pending)", "Сделка отправлена на согласование", appLanguage.value))
-        }
-    }
-
-    fun approveDeal() {
-        dealApprovalStatus.value = DealApprovalStatus.APPROVED
-        val currentScoring = _dealScoringResult.value
-        val client = selectedClient.value
-        val totalDealCost = currentScoring.costPrice * currentScoring.volumeUnits
-        val calculatedRoiPct = if (totalDealCost > 0.0) {
-            kotlin.math.round(((currentScoring.profitAfterCostOfCapital / totalDealCost) * 100.0) * 100.0) / 100.0
-        } else 0.0
-        val newDeal = attachPlanFact(
-            SavedDeal(
-                title = dealTitle.value,
-                clientName = client?.name ?: clientName.value,
-                currencyCode = activeCurrency.value.code,
-                dealValue = currentScoring.totalRevenue,
-                interestRatePct = currentScoring.costOfDeferralPct,
-                tenureMonths = (currentScoring.paymentTermsDays / 30).coerceAtLeast(1),
-                marginPct = currentScoring.netNetMarginPct,
-                markupPct = if (currentScoring.costPrice > 0) ((currentScoring.netNetPrice - currentScoring.costPrice) / currentScoring.costPrice) * 100.0 else 0.0,
-                roiPct = calculatedRoiPct,
-                paybackMonths = (currentScoring.paymentTermsDays.toDouble() / 30.0)
-            )
-        )
-        viewModelScope.launch {
-            val saveResult = dealRepository.saveDeal(newDeal)
-            client?.let {
-                clientRepository.attachPastDealToClient(it.id, newDeal)
-            }
-            saveResult.onSuccess {
-                _userMessage.emit(str("Deal approved and saved to client portfolio!", "Сделка утверждена и добавлена в портфель клиента!", appLanguage.value))
-            }.onFailure {
-                _userMessage.emit(str("Deal approved locally, but cloud sync failed.", "Сделка утверждена локально, но синхронизация с облаком не удалась.", appLanguage.value))
-            }
-        }
-    }
-
-    fun rejectDeal(reason: String = "") {
-        dealApprovalStatus.value = DealApprovalStatus.REJECTED
-        viewModelScope.launch {
-            _userMessage.emit(str("Deal rejected: $reason", "Сделка отклонена: $reason", appLanguage.value))
-        }
-    }
-
-    fun selectClient(clientId: String) {
-        selectedClientId.value = clientId
-        val client = clientsList.value.firstOrNull { it.id == clientId }
-        if (client != null) {
-            clientName.value = client.name
-            dealApprovalPaymentDays.value = client.agreedPaymentTermsDays.toString()
-            dealApprovalDiscountPct.value = client.standardOnInvoiceDiscountPct.toString()
-            dealApprovalBonusPct.value = client.standardOffInvoiceBonusPct.toString()
-            recalculateDealScoring()
-        }
-    }
-
-    fun saveClientProfile(profile: ClientNegotiationProfile, isNew: Boolean) {
-        if (isNew) {
-            clientRepository.addClient(profile)
-            selectClient(profile.id)
-            viewModelScope.launch {
-                _userMessage.emit(str("Client '${profile.name}' added successfully!", "Контрагент '${profile.name}' успешно добавлен!", appLanguage.value))
-            }
-        } else {
-            clientRepository.updateClient(profile)
-            if (selectedClientId.value == profile.id) {
-                selectClient(profile.id)
-            }
-            viewModelScope.launch {
-                _userMessage.emit(str("Client '${profile.name}' updated!", "Данные контрагента '${profile.name}' обновлены!", appLanguage.value))
-            }
-        }
-    }
-
-    fun deleteClientProfile(clientId: String) {
-        val client = clientsList.value.firstOrNull { it.id == clientId }
-        val name = client?.name ?: "Client"
-        clientRepository.deleteClient(clientId)
-        val remaining = clientsList.value
-        if (selectedClientId.value == clientId) {
-            val next = remaining.firstOrNull()
-            if (next != null) {
-                selectClient(next.id)
-            } else {
-                selectedClientId.value = ""
-                clientName.value = ""
-            }
-        }
-        viewModelScope.launch {
-            _userMessage.emit(str("Client '$name' deleted", "Контрагент '$name' удален", appLanguage.value))
-        }
-    }
-
-    fun addNegotiationRound(
-        clientId: String,
-        buyerDemands: String,
-        kamCounter: String,
-        discountPct: Double,
-        bonusPct: Double,
-        termsDays: Int,
-        outcome: String
-    ) {
-        val client = clientsList.value.firstOrNull { it.id == clientId } ?: return
-        val nextRound = client.negotiationHistory.size + 1
-        val touchpoint = NegotiationTouchpoint(
-            roundNumber = nextRound,
-            discountDemandedPct = discountPct,
-            bonusDemandedPct = bonusPct,
-            paymentTermsDemandedDays = termsDays,
-            buyerDemands = buyerDemands,
-            kamCounterOffer = kamCounter,
-            outcomeStatus = outcome
-        )
-        clientRepository.addNegotiationTouchpoint(clientId, touchpoint)
-        viewModelScope.launch {
-            _userMessage.emit(str("Round $nextRound logged to client history!", "Раунд $nextRound зафиксирован в истории переговоров!", appLanguage.value))
-        }
     }
 }
-
-

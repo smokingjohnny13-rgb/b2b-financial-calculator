@@ -86,6 +86,39 @@ service cloud.firestore {
              isFiniteNumber(data.planFactCapitalRate) && data.planFactCapitalRate >= 0 && data.planFactCapitalRate <= 1000;
     }
 
+    function isValidClientProfile(data, userId, clientId) {
+      return data.keys().hasAll([
+               'id', 'createdBy', 'name', 'industry', 'creditLimit',
+               'agreedPaymentTermsDays', 'standardCurrency',
+               'standardOnInvoiceDiscountPct', 'maxAllowedDiscountPct',
+               'standardOffInvoiceBonusPct', 'annualVolumeRebatePct',
+               'notes', 'updatedAt', 'pastDeals', 'negotiationHistory'
+             ]) &&
+             data.keys().hasOnly([
+               'id', 'createdBy', 'name', 'industry', 'creditLimit',
+               'agreedPaymentTermsDays', 'standardCurrency',
+               'standardOnInvoiceDiscountPct', 'maxAllowedDiscountPct',
+               'standardOffInvoiceBonusPct', 'annualVolumeRebatePct',
+               'notes', 'updatedAt', 'pastDeals', 'negotiationHistory'
+             ]) &&
+             data.id == clientId &&
+             isValidId(data.id) &&
+             data.createdBy == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+             data.industry is string && data.industry.size() <= 150 &&
+             isFiniteNumber(data.creditLimit) && data.creditLimit >= 0 && data.creditLimit <= 1000000000000 &&
+             data.agreedPaymentTermsDays is int && data.agreedPaymentTermsDays >= 0 && data.agreedPaymentTermsDays <= 3650 &&
+             data.standardCurrency is string && data.standardCurrency.size() >= 1 && data.standardCurrency.size() <= 10 &&
+             isFiniteNumber(data.standardOnInvoiceDiscountPct) && data.standardOnInvoiceDiscountPct >= 0 && data.standardOnInvoiceDiscountPct <= 100 &&
+             isFiniteNumber(data.maxAllowedDiscountPct) && data.maxAllowedDiscountPct >= 0 && data.maxAllowedDiscountPct <= 100 &&
+             isFiniteNumber(data.standardOffInvoiceBonusPct) && data.standardOffInvoiceBonusPct >= 0 && data.standardOffInvoiceBonusPct <= 100 &&
+             isFiniteNumber(data.annualVolumeRebatePct) && data.annualVolumeRebatePct >= 0 && data.annualVolumeRebatePct <= 100 &&
+             data.notes is string && data.notes.size() <= 2000 &&
+             data.updatedAt is int && data.updatedAt >= 0 &&
+             data.pastDeals is list && data.pastDeals.size() <= 50 && (data.pastDeals.size() == 0 || data.pastDeals[0] is map) &&
+             data.negotiationHistory is list && data.negotiationHistory.size() <= 100 && (data.negotiationHistory.size() == 0 || data.negotiationHistory[0] is map);
+    }
+
     // User deals: strictly private to the authenticated owner with full schema validation
     match /users/{userId}/deals/{dealId} {
       allow get: if isOwner(userId) && isValidId(dealId);
@@ -99,6 +132,21 @@ service cloud.firestore {
                        incoming().createdBy == existing().createdBy &&
                        incoming().id == existing().id;
       allow delete: if isOwner(userId) && isValidId(dealId);
+    }
+
+    // User B2B client negotiation profiles: strictly private to the authenticated owner
+    match /users/{userId}/clients/{clientId} {
+      allow get: if isOwner(userId) && isValidId(clientId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+                       isValidId(clientId) &&
+                       isValidClientProfile(incoming(), userId, clientId);
+      allow update: if isOwner(userId) &&
+                       isValidId(clientId) &&
+                       isValidClientProfile(incoming(), userId, clientId) &&
+                       incoming().createdBy == existing().createdBy &&
+                       incoming().id == existing().id;
+      allow delete: if isOwner(userId) && isValidId(clientId);
     }
   }
 }
