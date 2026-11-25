@@ -189,8 +189,8 @@ fun KamOnePagerDialog(
                     )
                     OnePagerBoundaryCard(
                         title = tr("FX WIPEOUT THRESHOLD", "КРИТИЧЕСКИЙ КУРС"),
-                        value = "${summary.criticalFxRate} ${summary.fxCurrencyCode}",
-                        badge = "+${summary.fxSafetyBufferPoints} ${tr("pts buffer", "п. подушка")}",
+                        value = if (summary.criticalFxRate.isFinite()) "${summary.criticalFxRate} ${summary.fxCurrencyCode}" else "∞ (100% ${tr("Hedged", "Хедж")})",
+                        badge = if (summary.criticalFxRate.isFinite()) "+${summary.fxSafetyBufferPoints} ${tr("pts buffer", "п. подушка")}" else tr("Fully hedged", "Полный хедж"),
                         badgeColor = EmeraldPrimary,
                         icon = Icons.Default.CurrencyExchange,
                         modifier = Modifier.weight(1f)

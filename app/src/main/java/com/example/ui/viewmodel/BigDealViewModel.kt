@@ -567,6 +567,11 @@ class BigDealViewModel(
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        dealRepository.stopFirestoreSync()
+    }
+
     // --- Financing Calculation Triggers ---
     fun updateFinancing() {
         val p = principalAmount.value.toCleanDouble() ?: 0.0
@@ -981,10 +986,10 @@ class BigDealViewModel(
         val totalRev = ap * av
         val totalCogs = ac * av
 
-        pnlRevenue.value = totalRev.toInt().toString()
-        pnlCogs.value = totalCogs.toInt().toString()
-        unitPrice.value = if (ap % 1.0 == 0.0) ap.toInt().toString() else String.format(Locale.US, "%.2f", ap)
-        unitCost.value = if (ac % 1.0 == 0.0) ac.toInt().toString() else String.format(Locale.US, "%.2f", ac)
+        pnlRevenue.value = formatCleanNum(totalRev)
+        pnlCogs.value = formatCleanNum(totalCogs)
+        unitPrice.value = formatCleanNum(ap)
+        unitCost.value = formatCleanNum(ac)
         updatePnlCalculations()
 
         viewModelScope.launch {
@@ -998,8 +1003,14 @@ class BigDealViewModel(
         }
     }
 
-    private fun formatCleanNum(value: Double): String =
-        if (value % 1.0 == 0.0) value.toInt().toString() else String.format(Locale.US, "%.2f", value)
+    private fun formatCleanNum(value: Double): String {
+        if (!value.isFinite()) return "0"
+        return if (value % 1.0 == 0.0 && value >= Long.MIN_VALUE && value <= Long.MAX_VALUE) {
+            value.toLong().toString()
+        } else {
+            String.format(Locale.US, "%.2f", value)
+        }
+    }
 
     private fun attachPlanFact(deal: SavedDeal): SavedDeal = deal.copy(
         hasPlanFactData = true,
@@ -1055,17 +1066,18 @@ class BigDealViewModel(
         dealTitle.value = deal.title
         clientName.value = deal.clientName
         selectedCurrency.value = deal.currencyCode
-        principalAmount.value = deal.dealValue.toInt().toString()
+        activeCurrency.value = CurrencyEngine.findByCode(deal.currencyCode, customCurrencies.value)
+        principalAmount.value = formatCleanNum(deal.dealValue)
         annualInterestRate.value = deal.interestRatePct.toString()
         tenureMonths.value = deal.tenureMonths.toString()
         paymentFrequency.value = deal.frequency
 
         updateFinancing()
         onMarginCostOrPriceChanged(
-            newCost = (deal.dealValue * (1.0 - deal.marginPct / 100.0)).toInt().toString(),
-            newPrice = deal.dealValue.toInt().toString()
+            newCost = formatCleanNum(deal.dealValue * (1.0 - deal.marginPct / 100.0)),
+            newPrice = formatCleanNum(deal.dealValue)
         )
-        pnlRevenue.value = deal.dealValue.toInt().toString()
+        pnlRevenue.value = formatCleanNum(deal.dealValue)
         updatePnlCalculations()
 
         val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
@@ -1279,7 +1291,7 @@ class BigDealViewModel(
         val safeCode = code.uppercase().trim().ifEmpty { "CUR" }
         val safeName = name.trim().ifEmpty { safeCode }
         val safeSym = symbol.trim().ifEmpty { safeCode }
-        val safeRate = if (rateToBaseUsd > 0) rateToBaseUsd else 1.0
+        val safeRate = if (rateToBaseUsd.isFinite() && rateToBaseUsd > 0.0) rateToBaseUsd else 1.0
         val newRate = CurrencyRate(safeCode, safeName, safeSym, safeRate)
         val list = customCurrencies.value.filter { !it.code.equals(newRate.code, ignoreCase = true) } + newRate
         customCurrencies.value = list
@@ -1361,11 +1373,11 @@ class BigDealViewModel(
     fun applyWaterfallToPnl() {
         val net = _waterfallResult.value.netNetPrice
         val cogs = _waterfallResult.value.supplierCogs
-        unitPrice.value = net.toInt().toString()
-        unitCost.value = cogs.toInt().toString()
+        unitPrice.value = formatCleanNum(net)
+        unitCost.value = formatCleanNum(cogs)
         val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        pnlRevenue.value = (net * vol).toInt().toString()
-        pnlCogs.value = (cogs * vol).toInt().toString()
+        pnlRevenue.value = formatCleanNum(net * vol)
+        pnlCogs.value = formatCleanNum(cogs * vol)
         updatePnlCalculations()
         viewModelScope.launch {
             _userMessage.emit(str("Net-Net price and cost transferred to P&L / Break-Even", "Net-Net цена и себестоимость переданы в P&L / Точку безубыточности", appLanguage.value))
@@ -1708,19 +1720,22 @@ class BigDealViewModel(
 
     fun applyKamScenarioToDeal() {
         val scenario = _kamCorridorResult.value.activeScenario
-        marginCostInput.value = scenario.cogs.toInt().toString()
-        marginPriceInput.value = scenario.netNetPrice.toInt().toString()
-        onMarginCostOrPriceChanged(newCost = scenario.cogs.toInt().toString(), newPrice = scenario.netNetPrice.toInt().toString())
+        val costStr = formatCleanNum(scenario.cogs)
+        val netStr = formatCleanNum(scenario.netNetPrice)
+        val shelfStr = formatCleanNum(scenario.shelfPrice)
+        marginCostInput.value = costStr
+        marginPriceInput.value = netStr
+        onMarginCostOrPriceChanged(newCost = costStr, newPrice = netStr)
 
-        dealApprovalCostPrice.value = scenario.cogs.toInt().toString()
-        dealApprovalSellingPrice.value = scenario.shelfPrice.toInt().toString()
+        dealApprovalCostPrice.value = costStr
+        dealApprovalSellingPrice.value = shelfStr
         dealApprovalDiscountPct.value = scenario.frontDiscountPct.toString()
         dealApprovalBonusPct.value = scenario.backBonusPct.toString()
         dealApprovalPaymentDays.value = scenario.paymentDays.toString()
         recalculateDealScoring()
 
         val vol = dealApprovalVolumeUnits.value.toCleanInt() ?: 1000
-        principalAmount.value = (scenario.netNetPrice * vol).toInt().toString()
+        principalAmount.value = formatCleanNum(scenario.netNetPrice * vol)
         updateFinancing()
 
         viewModelScope.launch {
@@ -1993,8 +2008,15 @@ class BigDealViewModel(
         if (data.clientName.isNotBlank()) {
             clientName.value = data.clientName
         }
+        val matchedCurrency = customCurrencies.value.firstOrNull {
+            it.code.equals(data.currencyCode, ignoreCase = true)
+        }
+        if (matchedCurrency != null) {
+            selectedCurrency.value = matchedCurrency.code
+            activeCurrency.value = matchedCurrency
+        }
         data.shelfPriceRsp?.let {
-            waterfallRsp.value = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.2f", it)
+            waterfallRsp.value = formatCleanNum(it)
             dealApprovalSellingPrice.value = waterfallRsp.value
         }
         data.vatRatePct?.let {
@@ -2014,10 +2036,10 @@ class BigDealViewModel(
             dealApprovalBonusPct.value = s
         }
         data.logisticsCostPerUnit?.let {
-            waterfallLogistics.value = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.2f", it)
+            waterfallLogistics.value = formatCleanNum(it)
         }
         data.supplierCogs?.let {
-            val s = if (it % 1.0 == 0.0) it.toInt().toString() else String.format(Locale.US, "%.2f", it)
+            val s = formatCleanNum(it)
             waterfallCogs.value = s
             dealApprovalCostPrice.value = s
             marginCostInput.value = s
@@ -2034,6 +2056,7 @@ class BigDealViewModel(
         updateWaterfallCalculations()
         recalculateDealScoring()
         updatePaymentTermsCalculations()
+        updateCurrencyConversion()
         isOcrDialogOpen.value = false
 
         viewModelScope.launch {

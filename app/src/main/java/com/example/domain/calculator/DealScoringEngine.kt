@@ -29,10 +29,13 @@ object DealScoringEngine {
         val safePrice = max(0.01, sellingPrice)
         val safeCost = max(0.0, costPrice)
         val safeVolume = max(1, volumeUnits)
-        val safeDiscount = max(0.0, onInvoiceDiscountPct) / 100.0
-        val safeBonus = max(0.0, offInvoiceBonusPct) / 100.0
+        val safeDiscountPct = onInvoiceDiscountPct.coerceIn(0.0, 100.0)
+        val safeBonusPct = offInvoiceBonusPct.coerceIn(0.0, 100.0)
+        val safeRatePct = max(0.0, financingAnnualRatePct)
+        val safeDiscount = safeDiscountPct / 100.0
+        val safeBonus = safeBonusPct / 100.0
         val safeDays = max(0, paymentTermsDays)
-        val safeRate = max(0.0, financingAnnualRatePct) / 100.0
+        val safeRate = safeRatePct / 100.0
 
         // 1. Net-Net
         val invoicePrice = max(0.0, safePrice * (1.0 - safeDiscount))
@@ -94,12 +97,12 @@ object DealScoringEngine {
 
         val trafficLightSummaryRu = when (scoringLevel) {
             DealScoringLevel.PROFITABLE -> "🟢 Прибыльная сделка: Net-Net маржа ${"%.1f".format(netNetMarginPct)}% с запасом покрывает отсрочку ${safeDays} дн."
-            DealScoringLevel.BORDERLINE -> "🟡 Пограничная сделка: Бонусы (${"%.1f".format(offInvoiceBonusPct)}%) и отсрочка съедают ${"%.2f".format(costOfDeferralAmount)} прибыли."
+            DealScoringLevel.BORDERLINE -> "🟡 Пограничная сделка: Бонусы (${"%.1f".format(safeBonusPct)}%) и отсрочка съедают ${"%.2f".format(costOfDeferralAmount)} прибыли."
             DealScoringLevel.MARGIN_DESTROYER -> "🔴 Уничтожает маржу: Net-Net цена (${"%.2f".format(netNetPrice)}) на грани себестоимости (${"%.2f".format(safeCost)}), прибыль с учетом отсрочки отрицательная или минимальна."
         }
         val trafficLightSummaryEn = when (scoringLevel) {
             DealScoringLevel.PROFITABLE -> "🟢 Profitable Deal: Net-Net margin ${"%.1f".format(netNetMarginPct)}% comfortably covers ${safeDays} days deferral."
-            DealScoringLevel.BORDERLINE -> "🟡 Borderline Deal: Rebates (${"%.1f".format(offInvoiceBonusPct)}%) and deferral drain ${"%.2f".format(costOfDeferralAmount)} of profit."
+            DealScoringLevel.BORDERLINE -> "🟡 Borderline Deal: Rebates (${"%.1f".format(safeBonusPct)}%) and deferral drain ${"%.2f".format(costOfDeferralAmount)} of profit."
             DealScoringLevel.MARGIN_DESTROYER -> "🔴 Margin Destroyer: Net-Net price (${"%.2f".format(netNetPrice)}) is near unit cost (${"%.2f".format(safeCost)}), capital cost turns deal toxic."
         }
         val trafficLightSummary = if (languageRu) trafficLightSummaryRu else trafficLightSummaryEn
@@ -121,10 +124,10 @@ object DealScoringEngine {
             sellingPrice = r2(safePrice),
             costPrice = r2(safeCost),
             volumeUnits = safeVolume,
-            onInvoiceDiscountPct = r2(onInvoiceDiscountPct),
-            offInvoiceBonusPct = r2(offInvoiceBonusPct),
+            onInvoiceDiscountPct = r2(safeDiscountPct),
+            offInvoiceBonusPct = r2(safeBonusPct),
             paymentTermsDays = safeDays,
-            financingAnnualRatePct = r2(financingAnnualRatePct),
+            financingAnnualRatePct = r2(safeRatePct),
             netNetPrice = r2(netNetPrice),
             grossMarginPct = r2(grossMarginPct),
             netNetMarginPct = r2(netNetMarginPct),

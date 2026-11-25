@@ -6,7 +6,7 @@ package com.example.util
  */
 fun String?.toCleanDouble(): Double? {
     if (this.isNullOrBlank()) return null
-    return this.replace(',', '.').trim().toDoubleOrNull()
+    return this.replace(',', '.').trim().toDoubleOrNull()?.takeIf { it.isFinite() }
 }
 
 fun String?.toCleanDouble(default: Double): Double = this.toCleanDouble() ?: default
@@ -14,7 +14,7 @@ fun String?.toCleanDouble(default: Double): Double = this.toCleanDouble() ?: def
 fun String?.toCleanInt(): Int? {
     if (this.isNullOrBlank()) return null
     val sanitized = this.replace(',', '.').trim()
-    return sanitized.toIntOrNull() ?: sanitized.toDoubleOrNull()?.toInt()
+    return sanitized.toIntOrNull() ?: sanitized.toDoubleOrNull()?.takeIf { it.isFinite() }?.toInt()
 }
 
 fun String?.toCleanInt(default: Int): Int = this.toCleanInt() ?: default

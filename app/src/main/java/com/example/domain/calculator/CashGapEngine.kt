@@ -111,6 +111,9 @@ object CashGapEngine {
         val savingsVsOverdraft = totalOverdraftCost - totalFactCost
         val isFactoringCheaper = totalFactCost < totalOverdraftCost
 
+        // Supplier balance is only a pre-collection cash deficit if DPO falls before customer payment (DIO + DSO)
+        val peakDeficit = if (safeDpo < totalOutDays) safeCogs else prepayDay0
+
         return CashGapResult(
             dealRevenue = r2(safeRev),
             cogsTotal = r2(safeCogs),
@@ -121,7 +124,7 @@ object CashGapEngine {
             inventoryDays = safeDio,
             cashConversionCycleDays = ccc,
             totalCashGapDays = totalOutDays,
-            peakCashDeficit = r2(safeCogs),
+            peakCashDeficit = r2(peakDeficit),
             overdraftRatePct = r2(overdraftRatePct),
             overdraftCost = r2(totalOverdraftCost),
             nominalProfit = r2(nominalProfit),

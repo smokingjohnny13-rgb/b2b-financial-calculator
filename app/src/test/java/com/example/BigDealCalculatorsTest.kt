@@ -907,6 +907,34 @@ class BigDealCalculatorsTest {
         // Effective Annual Rate (compounded) must be >= nominal APR
         assertTrue("EAR >= APR", graceLoan.effectiveAnnualRatePct >= graceLoan.trueEffectiveAprPct)
     }
+
+    @Test
+    fun testCashGapNegativeCccPeakDeficitEqualsPrepaymentOnly() {
+        val negativeCcc = com.example.domain.calculator.CashGapEngine.calculate(
+            dealRevenue = 100000.0,
+            cogsTotal = 70000.0,
+            prepaidPct = 20.0,
+            supplierPayDays = 90,
+            customerPayDays = 45,
+            inventoryDays = 15,
+            overdraftRatePct = 20.0
+        )
+        assertEquals(-30, negativeCcc.cashConversionCycleDays)
+        assertEquals(14000.0, negativeCcc.peakCashDeficit, 0.01)
+        assertEquals(460.27, negativeCcc.overdraftCost, 0.05)
+
+        val zeroPrepayNegativeCcc = com.example.domain.calculator.CashGapEngine.calculate(
+            dealRevenue = 100000.0,
+            cogsTotal = 70000.0,
+            prepaidPct = 0.0,
+            supplierPayDays = 90,
+            customerPayDays = 45,
+            inventoryDays = 15,
+            overdraftRatePct = 20.0
+        )
+        assertEquals(0.0, zeroPrepayNegativeCcc.peakCashDeficit, 0.01)
+        assertEquals(0.0, zeroPrepayNegativeCcc.overdraftCost, 0.01)
+    }
 }
 
 

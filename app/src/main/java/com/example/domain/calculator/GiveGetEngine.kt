@@ -114,7 +114,8 @@ object GiveGetEngine {
         }
 
         // Breakeven Volume Lift (only finite if post-concession contribution per unit is positive)
-        val requiredVolumeLiftUnits = if (newUnitContribution > 0.0001) {
+        val isVolumeLiftViable = newUnitContribution > 0.0001
+        val requiredVolumeLiftUnits = if (isVolumeLiftViable) {
             ceil(concessionFinancialCost / newUnitContribution).toInt()
         } else 0
         val requiredVolumeLiftPct = (requiredVolumeLiftUnits.toDouble() / safeVolume.toDouble()) * 100.0
@@ -145,10 +146,10 @@ object GiveGetEngine {
                 id = "volume_lift",
                 titleEn = "Contracted Volume Lift",
                 titleRu = "Увеличение объёма закупки",
-                valueHeadlineEn = "+${requiredVolumeLiftUnits} units (+${"%.1f".format(requiredVolumeLiftPct)}%)",
-                valueHeadlineRu = "+${requiredVolumeLiftUnits} шт. (+${"%.1f".format(requiredVolumeLiftPct)}%)",
-                descriptionEn = "Increase total contract volume from ${safeVolume} to ${newTargetVolume} units to keep EBITDA neutral.",
-                descriptionRu = "Увеличить контрактный объём с ${safeVolume} до ${newTargetVolume} шт., чтобы полностью покрыть уступку за счёт маржинального дохода.",
+                valueHeadlineEn = if (isVolumeLiftViable) "+${requiredVolumeLiftUnits} units (+${"%.1f".format(requiredVolumeLiftPct)}%)" else "Infeasible (Unit Margin <= 0)",
+                valueHeadlineRu = if (isVolumeLiftViable) "+${requiredVolumeLiftUnits} шт. (+${"%.1f".format(requiredVolumeLiftPct)}%)" else "Невозможно (убыток на ед.)",
+                descriptionEn = if (isVolumeLiftViable) "Increase total contract volume from ${safeVolume} to ${newTargetVolume} units to keep EBITDA neutral." else "Post-concession unit margin is non-positive; extra volume increases losses. Use price indexation or rebate cuts instead.",
+                descriptionRu = if (isVolumeLiftViable) "Увеличить контрактный объём с ${safeVolume} до ${newTargetVolume} шт., чтобы полностью покрыть уступку за счёт маржинального дохода." else "Маржа на единицу после уступки отрицательна или нулевая — рост объёма только увеличит убыток. Компенсируйте ценой или бонусами.",
                 isPrimary = true
             ),
             GiveGetCounterTrade(
@@ -195,8 +196,16 @@ object GiveGetEngine {
             GiveConcessionType.LISTING_FEE -> "${concessionValue.toInt()} плата за листинг"
         }
 
-        val negotiationScriptEn = "We can support your request for $concessionDescEn, provided we align on a contract volume commitment of $newTargetVolume units (+${"%.1f".format(requiredVolumeLiftPct)}%), which preserves our required corporate EBITDA threshold."
-        val negotiationScriptRu = "Мы готовы согласовать $concessionDescRu, при условии фиксации объёма закупки на уровне $newTargetVolume шт. (+${"%.1f".format(requiredVolumeLiftPct)}%), что сохраняет целевую рентабельность по корпоративным правилам."
+        val negotiationScriptEn = if (isVolumeLiftViable) {
+            "We can support your request for $concessionDescEn, provided we align on a contract volume commitment of $newTargetVolume units (+${"%.1f".format(requiredVolumeLiftPct)}%), which preserves our required corporate EBITDA threshold."
+        } else {
+            "This $concessionDescEn puts unit margin below break-even, so extra volume cannot offset it. We can proceed only with a +${"%.2f".format(reqPriceCompPct)}% list price adjustment or equivalent rebate cut."
+        }
+        val negotiationScriptRu = if (isVolumeLiftViable) {
+            "Мы готовы согласовать $concessionDescRu, при условии фиксации объёма закупки на уровне $newTargetVolume шт. (+${"%.1f".format(requiredVolumeLiftPct)}%), что сохраняет целевую рентабельность по корпоративным правилам."
+        } else {
+            "Уступка ($concessionDescRu) обнуляет маржу на единицу — рост объёма её не окупит. Готовы обсуждать только при индексации базовой цены на +${"%.2f".format(reqPriceCompPct)}% или сокращении бонусов."
+        }
 
         return GiveGetResult(
             concessionType = concessionType,

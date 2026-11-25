@@ -7,6 +7,8 @@ import com.example.domain.calculator.MultiCurrencyCreditEngine
 import com.example.util.toCleanDouble
 import com.example.util.toCleanInt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -103,6 +105,13 @@ class FinancialArchitectureOptimizationsTest {
         assertEquals(36, "36,0".toCleanInt() ?: 0)
         assertEquals(10, " 10 ".toCleanInt() ?: 0)
         assertEquals(12, "".toCleanInt(12))
+
+        assertNull("NaN".toCleanDouble())
+        assertNull("Infinity".toCleanDouble())
+        assertNull("-Infinity".toCleanDouble())
+        assertEquals(0.0, "NaN".toCleanDouble(0.0), 0.001)
+        assertNull("NaN".toCleanInt())
+        assertNull("Infinity".toCleanInt())
     }
 
     @Test
@@ -321,6 +330,9 @@ class FinancialArchitectureOptimizationsTest {
         )
         assertEquals(-10.0, lossRes.unitContributionMargin, 0.01)
         assertEquals(0, lossRes.requiredVolumeLiftUnits)
+        assertTrue(lossRes.counterTrades.first { it.id == "volume_lift" }.valueHeadlineEn.contains("Infeasible"))
+        assertFalse(lossRes.negotiationScriptEn.contains("+0.0%"))
+        assertFalse(lossRes.negotiationScriptRu.contains("+0.0%"))
     }
 
     @Test

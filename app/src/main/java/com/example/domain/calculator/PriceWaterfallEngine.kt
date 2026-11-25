@@ -52,14 +52,18 @@ object PriceWaterfallEngine {
         supplierCogs: Double = 25.0
     ): PriceWaterfallResult {
         val safeRsp = max(0.0, shelfRspWithVat)
-        val safeVat = max(0.0, vatRatePct) / 100.0
-        val safeRetMargin = max(0.0, retailerMarginPct) / 100.0
-        val safeFrontDisc = max(0.0, frontDiscountPct) / 100.0
-        val safeBackBonus = max(0.0, backBonusPct) / 100.0
+        val safeVatPct = vatRatePct.coerceIn(0.0, 100.0)
+        val safeRetMarginPct = retailerMarginPct.coerceIn(0.0, 100.0)
+        val safeFrontDiscPct = frontDiscountPct.coerceIn(0.0, 100.0)
+        val safeBackBonusPct = backBonusPct.coerceIn(0.0, 100.0)
+        val safeVat = safeVatPct / 100.0
+        val safeRetMargin = safeRetMarginPct / 100.0
+        val safeFrontDisc = safeFrontDiscPct / 100.0
+        val safeBackBonus = safeBackBonusPct / 100.0
         val safeLogistics = max(0.0, logisticsCostPerUnit)
         val safeCogs = max(0.0, supplierCogs)
 
-        val priceExVat = if (safeVat > -1.0) safeRsp / (1.0 + safeVat) else safeRsp
+        val priceExVat = safeRsp / (1.0 + safeVat)
         val vatAmount = safeRsp - priceExVat
 
         val retailerMarginAmount = priceExVat * safeRetMargin
@@ -79,16 +83,16 @@ object PriceWaterfallEngine {
 
         return PriceWaterfallResult(
             shelfRspWithVat = r2(safeRsp),
-            vatRatePct = r2(vatRatePct),
+            vatRatePct = r2(safeVatPct),
             vatAmount = r2(vatAmount),
             priceExVat = r2(priceExVat),
-            retailerMarginPct = r2(retailerMarginPct),
+            retailerMarginPct = r2(safeRetMarginPct),
             retailerMarginAmount = r2(retailerMarginAmount),
             retailerPurchasePrice = r2(retailerPurchasePrice),
-            frontDiscountPct = r2(frontDiscountPct),
+            frontDiscountPct = r2(safeFrontDiscPct),
             frontDiscountAmount = r2(frontDiscountAmount),
             invoicePrice = r2(invoicePrice),
-            backBonusPct = r2(backBonusPct),
+            backBonusPct = r2(safeBackBonusPct),
             backBonusAmount = r2(backBonusAmount),
             logisticsCostPerUnit = r2(safeLogistics),
             netNetPrice = r2(netNetPrice),

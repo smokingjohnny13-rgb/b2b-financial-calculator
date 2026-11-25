@@ -57,72 +57,80 @@ object PdfExportService {
     ): Result<Uri> {
         return runCatching {
             val pdfDocument = PdfDocument()
-            val pageWidth = 595 // Standard A4 width in points
-            val pageHeight = 842 // Standard A4 height in points
+            val pdfFile = try {
+                val pageWidth = 595 // Standard A4 width in points
+                val pageHeight = 842 // Standard A4 height in points
 
-            val currencyFmt = NumberFormat.getCurrencyInstance(Locale.US).apply {
-                currency = try {
-                    java.util.Currency.getInstance(deal.currencyCode)
-                } catch (e: Exception) {
-                    java.util.Currency.getInstance("USD")
+                val currencyFmt = NumberFormat.getCurrencyInstance(Locale.US).apply {
+                    currency = try {
+                        java.util.Currency.getInstance(deal.currencyCode)
+                    } catch (e: Exception) {
+                        java.util.Currency.getInstance("USD")
+                    }
                 }
+                val percentFmt = NumberFormat.getNumberInstance(Locale.US).apply {
+                    maximumFractionDigits = 1
+                    minimumFractionDigits = 1
+                }
+
+                // --- PAGE 1: Commercial Deal Desk, Scoring, Give-Get & Tornado Analysis ---
+                val pageInfo1 = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+                val page1 = pdfDocument.startPage(pageInfo1)
+                drawPageOneCommercialBrief(
+                    canvas = page1.canvas,
+                    deal = deal,
+                    margin = margin,
+                    pnl = pnl,
+                    dealScoring = dealScoring,
+                    dealStatus = dealStatus,
+                    giveGet = giveGet,
+                    tornado = tornado,
+                    waterfall = waterfall,
+                    landedCost = landedCost,
+                    currencyFmt = currencyFmt,
+                    percentFmt = percentFmt,
+                    pageWidth = pageWidth,
+                    pageHeight = pageHeight
+                )
+                pdfDocument.finishPage(page1)
+
+                // --- PAGE 2: Financial Underwriting, Amortization Schedule & P&L Statement ---
+                val pageInfo2 = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 2).create()
+                val page2 = pdfDocument.startPage(pageInfo2)
+                drawPageTwoFinancialProjections(
+                    canvas = page2.canvas,
+                    deal = deal,
+                    amortization = amortization,
+                    pnl = pnl,
+                    ltv = ltv,
+                    landedCost = landedCost,
+                    cashGap = cashGap,
+                    planFact = planFact,
+                    currencyFmt = currencyFmt,
+                    percentFmt = percentFmt,
+                    pageWidth = pageWidth,
+                    pageHeight = pageHeight
+                )
+                pdfDocument.finishPage(page2)
+
+                val reportsDir = File(context.cacheDir, "reports")
+                if (!reportsDir.exists()) reportsDir.mkdirs()
+                CsvExportService.pruneStaleReports(reportsDir)
+
+                val sanitizedTitle = deal.title
+                    .replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                    .trim('_')
+                    .take(30)
+                    .ifBlank { "Deal" }
+                val targetFile = File(reportsDir, "NotaBigDeal_${sanitizedTitle}_${System.currentTimeMillis()}.pdf")
+                FileOutputStream(targetFile).use { outputStream ->
+                    pdfDocument.writeTo(outputStream)
+                    outputStream.flush()
+                }
+                targetFile
+            } finally {
+                pdfDocument.close()
             }
-            val percentFmt = NumberFormat.getNumberInstance(Locale.US).apply {
-                maximumFractionDigits = 1
-                minimumFractionDigits = 1
-            }
-
-            // --- PAGE 1: Commercial Deal Desk, Scoring, Give-Get & Tornado Analysis ---
-            val pageInfo1 = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
-            val page1 = pdfDocument.startPage(pageInfo1)
-            drawPageOneCommercialBrief(
-                canvas = page1.canvas,
-                deal = deal,
-                margin = margin,
-                pnl = pnl,
-                dealScoring = dealScoring,
-                dealStatus = dealStatus,
-                giveGet = giveGet,
-                tornado = tornado,
-                waterfall = waterfall,
-                landedCost = landedCost,
-                currencyFmt = currencyFmt,
-                percentFmt = percentFmt,
-                pageWidth = pageWidth,
-                pageHeight = pageHeight
-            )
-            pdfDocument.finishPage(page1)
-
-            // --- PAGE 2: Financial Underwriting, Amortization Schedule & P&L Statement ---
-            val pageInfo2 = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 2).create()
-            val page2 = pdfDocument.startPage(pageInfo2)
-            drawPageTwoFinancialProjections(
-                canvas = page2.canvas,
-                deal = deal,
-                amortization = amortization,
-                pnl = pnl,
-                ltv = ltv,
-                landedCost = landedCost,
-                cashGap = cashGap,
-                planFact = planFact,
-                currencyFmt = currencyFmt,
-                percentFmt = percentFmt,
-                pageWidth = pageWidth,
-                pageHeight = pageHeight
-            )
-            pdfDocument.finishPage(page2)
-
-            val reportsDir = File(context.cacheDir, "reports")
-            if (!reportsDir.exists()) reportsDir.mkdirs()
-            CsvExportService.pruneStaleReports(reportsDir)
-
-            val sanitizedTitle = deal.title.replace("[^a-zA-Z0-9]".toRegex(), "_")
-            val pdfFile = File(reportsDir, "NotaBigDeal_${sanitizedTitle}_${System.currentTimeMillis()}.pdf")
-            val outputStream = FileOutputStream(pdfFile)
-            pdfDocument.writeTo(outputStream)
-            outputStream.flush()
-            outputStream.close()
-            pdfDocument.close()
 
             val contentUri = FileProvider.getUriForFile(
                 context,
@@ -156,31 +164,35 @@ object PdfExportService {
     fun generateAndShareProductFlyerPdf(context: Context): Result<Uri> {
         return runCatching {
             val pdfDocument = PdfDocument()
-            val pageWidth = 595 // Standard A4 width in points
-            val pageHeight = 842 // Standard A4 height in points
-            val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
-            val page = pdfDocument.startPage(pageInfo)
-            val canvas = page.canvas
+            val pdfFile = try {
+                val pageWidth = 595 // Standard A4 width in points
+                val pageHeight = 842 // Standard A4 height in points
+                val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+                val page = pdfDocument.startPage(pageInfo)
+                val canvas = page.canvas
 
-            drawProductFlyerContent(
-                canvas = canvas,
-                context = context,
-                pageWidth = pageWidth,
-                pageHeight = pageHeight
-            )
+                drawProductFlyerContent(
+                    canvas = canvas,
+                    context = context,
+                    pageWidth = pageWidth,
+                    pageHeight = pageHeight
+                )
 
-            pdfDocument.finishPage(page)
+                pdfDocument.finishPage(page)
 
-            val reportsDir = File(context.cacheDir, "reports")
-            if (!reportsDir.exists()) reportsDir.mkdirs()
-            CsvExportService.pruneStaleReports(reportsDir)
+                val reportsDir = File(context.cacheDir, "reports")
+                if (!reportsDir.exists()) reportsDir.mkdirs()
+                CsvExportService.pruneStaleReports(reportsDir)
 
-            val pdfFile = File(reportsDir, "NotaBigDeal_Executive_Flyer_${System.currentTimeMillis()}.pdf")
-            val outputStream = FileOutputStream(pdfFile)
-            pdfDocument.writeTo(outputStream)
-            outputStream.flush()
-            outputStream.close()
-            pdfDocument.close()
+                val targetFile = File(reportsDir, "NotaBigDeal_Executive_Flyer_${System.currentTimeMillis()}.pdf")
+                FileOutputStream(targetFile).use { outputStream ->
+                    pdfDocument.writeTo(outputStream)
+                    outputStream.flush()
+                }
+                targetFile
+            } finally {
+                pdfDocument.close()
+            }
 
             val contentUri = FileProvider.getUriForFile(
                 context,
@@ -1134,18 +1146,22 @@ object PdfExportService {
         }.getOrNull()
 
         if (analyticsBmp != null) {
-            canvas.save()
-            val imgDestRect = RectF(uiLeft2 + 6f, uiTop + 24f, uiRight2 - 6f, uiBottom - 26f)
-            val clipPath = Path().apply {
-                addRoundRect(imgDestRect, 4f, 4f, Path.Direction.CW)
+            try {
+                canvas.save()
+                val imgDestRect = RectF(uiLeft2 + 6f, uiTop + 24f, uiRight2 - 6f, uiBottom - 26f)
+                val clipPath = Path().apply {
+                    addRoundRect(imgDestRect, 4f, 4f, Path.Direction.CW)
+                }
+                canvas.clipPath(clipPath)
+                // Crop middle section of the screenshot where the cashflow grid and cards are
+                val srcTop = (analyticsBmp.height * 0.38f).toInt()
+                val srcBottom = (analyticsBmp.height * 0.82f).toInt()
+                val srcRect = Rect(0, srcTop, analyticsBmp.width, srcBottom)
+                canvas.drawBitmap(analyticsBmp, srcRect, imgDestRect, paint)
+                canvas.restore()
+            } finally {
+                analyticsBmp.recycle()
             }
-            canvas.clipPath(clipPath)
-            // Crop middle section of the screenshot where the cashflow grid and cards are
-            val srcTop = (analyticsBmp.height * 0.38f).toInt()
-            val srcBottom = (analyticsBmp.height * 0.82f).toInt()
-            val srcRect = Rect(0, srcTop, analyticsBmp.width, srcBottom)
-            canvas.drawBitmap(analyticsBmp, srcRect, imgDestRect, paint)
-            canvas.restore()
         } else {
             // High-fidelity vector simulation of the 12-month tiles
             val tileWidth = 76f

@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import android.content.Context
 import android.util.Log
+import com.example.BuildConfig
 import com.example.R
 import com.example.data.model.PaymentFrequency
 import com.example.data.model.SavedDeal
@@ -129,7 +130,7 @@ class DealRepository(
                     return@addSnapshotListener
                 }
 
-                if (snapshot != null && !snapshot.isEmpty) {
+                if (snapshot != null) {
                     val remoteDeals = snapshot.documents.mapNotNull { doc ->
                         try {
                             val rawFrequency = doc.getString("frequency")
@@ -169,11 +170,9 @@ class DealRepository(
                             null
                         }
                     }
-                    if (remoteDeals.isNotEmpty()) {
-                        // Merge remote user deals with clean default presets (never stale user deals)
-                        val merged = (remoteDeals + defaultPresets).distinctBy { it.id }
-                        _deals.value = merged.sortedByDescending { it.updatedAt }
-                    }
+                    // Always reconcile remote deals (including empty list when last cloud deal is deleted)
+                    val merged = (remoteDeals + defaultPresets).distinctBy { it.id }
+                    _deals.value = merged.sortedByDescending { it.updatedAt }
                 }
             }
     }
@@ -340,13 +339,13 @@ class DealRepository(
         val providerInfoList = currentUser?.providerData?.map { provider ->
             JSONObject().apply {
                 put("providerId", provider.providerId)
-                put("email", provider.email)
+                put("email", if (BuildConfig.DEBUG) provider.email else "[REDACTED]")
             }
         } ?: emptyList()
 
         val authInfoJson = JSONObject().apply {
             put("userId", currentUser?.uid)
-            put("email", currentUser?.email)
+            put("email", if (BuildConfig.DEBUG) currentUser?.email else "[REDACTED]")
             put("emailVerified", currentUser?.isEmailVerified)
             put("tenantId", currentUser?.tenantId)
             put("providerInfo", JSONArray(providerInfoList))
@@ -360,7 +359,11 @@ class DealRepository(
         }
 
         val jsonString = errorInfoJson.toString()
-        Log.e("FirestoreError", "Firestore Error: $jsonString")
+        if (BuildConfig.DEBUG) {
+            Log.e("FirestoreError", "Firestore Error: $jsonString")
+        } else {
+            Log.e("FirestoreError", "Firestore Error [${operationType.value}] at $path: ${rootError.javaClass.simpleName}")
+        }
         return jsonString
     }
 }

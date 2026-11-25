@@ -200,14 +200,18 @@ object CsvExportService {
         val exportDate = dateFmt.format(Date())
 
         val totalValue = deals.sumOf { it.dealValue }
-        val avgMargin = if (deals.isNotEmpty()) deals.map { it.marginPct }.average() else 0.0
+        val weightedAvgMargin = if (totalValue > 0.0) {
+            deals.sumOf { it.dealValue * it.marginPct } / totalValue
+        } else if (deals.isNotEmpty()) {
+            deals.map { it.marginPct }.average()
+        } else 0.0
 
         // Summary Header
         sb.append("NotaBigDeal - Deal Vault Portfolio Registry\n")
         sb.append("Export Date,${csvCell(exportDate)}\n")
         sb.append("Total Contracts,${deals.size}\n")
         sb.append("Total Portfolio Value,${String.format(Locale.US, "%.2f", totalValue)}\n")
-        sb.append("Weighted Average Margin %,${String.format(Locale.US, "%.1f", avgMargin)}%\n")
+        sb.append("Weighted Average Margin %,${String.format(Locale.US, "%.1f", weightedAvgMargin)}%\n")
         sb.append("Contact,${csvCell("www.linkedin.com/in/snitkor")}\n\n")
 
         // Table Columns

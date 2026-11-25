@@ -190,7 +190,7 @@ class CsvExportServiceTest {
         assertTrue(csv.contains("NotaBigDeal - Deal Vault Portfolio Registry"))
         assertTrue(csv.contains("Total Contracts,2"))
         assertTrue(csv.contains("Total Portfolio Value,250000.00"))
-        assertTrue(csv.contains("Weighted Average Margin %,35.0%"))
+        assertTrue(csv.contains("Weighted Average Margin %,37.0%"))
 
         // Column line check
         assertTrue(csv.contains("Contract ID,Deal Title,Client Account,Currency,Deal Value,Interest Rate %,Tenure (Mo)"))

@@ -197,4 +197,34 @@ class DealApprovalAndScoringTest {
         assertEquals(initialCount, repo.clients.value.size)
         assertTrue(repo.clients.value.none { it.id == newProfile.id })
     }
+
+    @Test
+    fun `test scoring and price waterfall clamp out of range percentages`() {
+        val scoring = DealScoringEngine.calculate(
+            sellingPrice = 100.0,
+            costPrice = 50.0,
+            volumeUnits = 10,
+            onInvoiceDiscountPct = 150.0,
+            offInvoiceBonusPct = 120.0,
+            paymentTermsDays = 0,
+            financingAnnualRatePct = 0.0
+        )
+        assertEquals(100.0, scoring.onInvoiceDiscountPct, 0.01)
+        assertEquals(100.0, scoring.offInvoiceBonusPct, 0.01)
+        assertEquals(0.0, scoring.netNetPrice, 0.01)
+
+        val waterfall = com.example.domain.calculator.PriceWaterfallEngine.calculate(
+            shelfRspWithVat = 120.0,
+            vatRatePct = 20.0,
+            retailerMarginPct = 140.0,
+            frontDiscountPct = 110.0,
+            backBonusPct = 125.0,
+            logisticsCostPerUnit = 0.0,
+            supplierCogs = 10.0
+        )
+        assertEquals(100.0, waterfall.retailerMarginPct, 0.01)
+        assertEquals(100.0, waterfall.frontDiscountPct, 0.01)
+        assertEquals(100.0, waterfall.backBonusPct, 0.01)
+        assertEquals(0.0, waterfall.netNetPrice, 0.01)
+    }
 }
