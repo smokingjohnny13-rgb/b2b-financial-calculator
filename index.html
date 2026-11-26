@@ -43,7 +43,7 @@
       --blue: #38bdf8;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
@@ -61,7 +61,6 @@
       padding: 0 24px;
     }
 
-    /* Header */
     header {
       border-bottom: 1px solid var(--border);
       padding: 18px 0;
@@ -91,4 +90,366 @@
     .brand-badge {
       background: var(--accent-soft);
       color: var(--accent);
-      border: 1px solid rgba
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .hero {
+      padding: 72px 0 56px;
+      text-align: center;
+    }
+
+    .pill {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4.5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      max-width: 820px;
+      margin: 0 auto 20px;
+    }
+
+    .hero p {
+      font-size: 1.12rem;
+      color: var(--muted);
+      max-width: 680px;
+      margin: 0 auto 34px;
+    }
+
+    .cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #042f2e;
+      font-weight: 700;
+      padding: 14px 26px;
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-hover);
+      border-color: #3b4d6b;
+    }
+
+    .meta-note {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    section { padding: 48px 0; }
+
+    .section-title {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .section-sub {
+      color: var(--muted);
+      margin-bottom: 32px;
+      max-width: 640px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+    }
+
+    .card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .card p {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--blue);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .roles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .role-box {
+      background: var(--surface);
+      border-left: 3px solid var(--accent);
+      border-top: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .role-box strong {
+      display: block;
+      font-size: 1.02rem;
+      margin-bottom: 6px;
+    }
+
+    .role-box span {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .faq-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .faq-item h4 {
+      font-size: 1.02rem;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .faq-item p {
+      font-size: 0.94rem;
+      color: var(--muted);
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0 48px;
+      margin-top: 32px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .footer-links a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container nav">
+      <div class="brand">
+        <span>NotaBigDeal</span>
+        <span class="brand-badge">v1.4.0 Android</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#roles">Who It's For</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/smokingjohnny13-rgb/b2b-financial-calculator" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="pill">Offline-First Commercial Negotiation Workstation</div>
+      <h1>Protect Your Deal Margin at the Negotiation Table</h1>
+      <p>
+        NotaBigDeal replaces clunky Excel spreadsheets and bloated enterprise CPQ systems with an instant, offline Android financial calculator built for B2B sales, key account management, and CFO deal reviews.
+      </p>
+      <div class="cta-group">
+        <a class="btn-primary" href="https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/latest" target="_blank" rel="noopener">
+          Download Signed APK (v1.4.0)
+        </a>
+        <a class="btn-secondary" href="https://github.com/smokingjohnny13-rgb/b2b-financial-calculator" target="_blank" rel="noopener">
+          View Source &amp; Docs on GitHub
+        </a>
+        <a class="btn-secondary" href="https://alternativeto.net/software/notabigdeal/" target="_blank" rel="noopener">
+          Listed on AlternativeTo
+        </a>
+      </div>
+      <div class="meta-note">
+        Free &bull; 7.8 MB Signed APK &bull; Android 8.0+ &bull; Works 100% Offline
+      </div>
+    </section>
+
+    <section id="features">
+      <h2 class="section-title">Core Financial Engines</h2>
+      <p class="section-sub">
+        Every concession has a hidden cost. Model discounts, payment delays, rebates, and logistics expenses in seconds before shaking hands.
+      </p>
+      <div class="grid">
+        <div class="card">
+          <div class="tag">Margin Protection</div>
+          <h3>Net-Net Margin Waterfall</h3>
+          <p>
+            Track true deal profitability from List Price down to Pocket Margin after invoice discounts, volume bonuses, marketing retro-rebates, and delivery costs.
+          </p>
+        </div>
+        <div class="card">
+          <div class="tag">Working Capital</div>
+          <h3>Payment Delay &amp; WACC Cost</h3>
+          <p>
+            Quantify the real financial cost of Net-30, Net-60, or Net-90 deferred payment terms using your company's Weighted Average Cost of Capital (WACC).
+          </p>
+        </div>
+        <div class="card">
+          <div class="tag">Negotiation Strategy</div>
+          <h3>Give-Get Concession Engine</h3>
+          <p>
+            Never give a unilateral discount. Instantly calculate equivalent counter-demands (higher volume, faster payment, longer contract) to keep margin neutral.
+          </p>
+        </div>
+        <div class="card">
+          <div class="tag">Risk Check</div>
+          <h3>AI Deal Audit</h3>
+          <p>
+            Run an automated sanity check on deal structure, margin thresholds, and commercial red flags before submitting terms for CFO approval.
+          </p>
+        </div>
+        <div class="card">
+          <div class="tag">Field Ready</div>
+          <h3>100% Offline-First Architecture</h3>
+          <p>
+            Built natively with Kotlin, Jetpack Compose, and Room local storage. Instant calculations inside factory floors, basements, or flights with zero signal.
+          </p>
+        </div>
+        <div class="card">
+          <div class="tag">Executive Output</div>
+          <h3>Structured Deal Summary</h3>
+          <p>
+            Export clean financial breakdowns for internal approval workflows and align sales teams with finance leadership using a single shared P&amp;L language.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="roles">
+      <h2 class="section-title">Built for B2B Revenue &amp; Finance Leaders</h2>
+      <p class="section-sub">
+        Designed from real enterprise hardware, telecom, and distribution negotiation workflows.
+      </p>
+      <div class="roles">
+        <div class="role-box">
+          <strong>Key Account Managers (KAM)</strong>
+          <span>Defend pocket margin during annual contract renewals and retail/enterprise buyer pressure.</span>
+        </div>
+        <div class="role-box">
+          <strong>Business Development Managers (BDM)</strong>
+          <span>Structure complex multi-variable commercial proposals on the spot without waiting for finance back-office turnaround.</span>
+        </div>
+        <div class="role-box">
+          <strong>CFOs &amp; Commercial Directors</strong>
+          <span>Standardize WACC cost-of-credit rules and enforce margin guardrails across the entire sales team.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2 class="section-title">Frequently Asked Questions</h2>
+      <div class="faq-list">
+        <div class="faq-item">
+          <h4>Does NotaBigDeal work offline during live client meetings?</h4>
+          <p>Yes. All financial engines (Net-Net Waterfall, WACC payment delay cost, and Give-Get trade-offs) run locally on your Android device with zero internet connection required.</p>
+        </div>
+        <div class="faq-item">
+          <h4>How do I install NotaBigDeal on Android?</h4>
+          <p>Download the signed <code>NotaBigDeal-v1.4.0.apk</code> directly from GitHub Releases, open the file on your Android device (Android 8.0 or higher), and allow installation from your browser or file manager.</p>
+        </div>
+        <div class="faq-item">
+          <h4>Is NotaBigDeal a free alternative to enterprise CPQ tools?</h4>
+          <p>Yes. NotaBigDeal is completely free to use and provides fast pocket-margin and negotiation trade-off modeling without heavy CRM/CPQ implementation overhead.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <div>&copy; 2026 NotaBigDeal &bull; Built by Roman Snitko</div>
+      <div class="footer-links">
+        <a href="https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/latest" target="_blank" rel="noopener">Latest Release</a>
+        <a href="https://github.com/smokingjohnny13-rgb/b2b-financial-calculator" target="_blank" rel="noopener">GitHub Repository</a>
+        <a href="https://alternativeto.net/software/notabigdeal/" target="_blank" rel="noopener">AlternativeTo</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
