@@ -318,3 +318,32 @@ Developed for commercial directors, enterprise Key Account Managers, and financi
 - **LinkedIn (Commercial Licensing & Inquiries)**: [www.linkedin.com/in/snitkor](https://www.linkedin.com/in/snitkor)
 - **App Name**: **NotaBigDeal** (`v1.4.0` Signed Release)
 - **License**: Dual-Licensed — [GNU AGPLv3](LICENSE) / Commercial License (see [NOTICE](NOTICE))
+
+---
+
+## Frequently Asked Questions (FAQ)
+
+### How to calculate net-net margin and payment delay cost offline on Android?
+**NotaBigDeal** runs its entire pricing waterfall and working capital engine locally on Android with zero internet required:
+- **Net-Net Margin Example (with Back-Bonus / Retro-Rebate)**:
+  Suppose **Shelf Price (RSP with 20% VAT)** = `$120.00`, **Retailer Margin** = `30%`, **Front On-Invoice Discount** = `5%`, **Off-Invoice Back-Bonus (Retro-Rebate)** = `8%`, **DC Logistics** = `$3.50/unit`, and **Supplier COGS** = `$40.00`:
+  1. Ex-VAT Shelf Price: `$120.00 / 1.20 = $100.00`
+  2. After 30% Retailer Margin: `$100.00 - $30.00 = $70.00`
+  3. After 5% Front Discount: `$70.00 - $3.50 = $66.50` *(On-Invoice Price)*
+  4. After 8% Back-Bonus (`$66.50 × 8% = $5.32`) and `$3.50` Logistics: **`$57.68` Net-Net Realized Price**
+  5. Gross Profit: `$57.68 - $40.00 = $17.68` (**`30.65%` true Net-Net Margin** / `44.20%` Markup).
+- **Payment Delay (Deferral) Cost Example**:
+  On a **`$100,000`** invoice with **60-day payment terms** at an **18% annual cost of capital**:
+  $$\text{Deferral Cost} = \$100,000 \times 18\% \times \frac{60}{365} = \$2,958.90 \quad (\text{a hidden } \mathbf{2.96\%} \text{ price cut, or } \$49.32/\text{day})$$
+  Offering a **2% early-payment cash discount** (`$98,000` on Day 0) beats waiting 60 days (`$97,126.13` NPV) by **`+$873.87`**.
+
+### Is there a free offline alternative to CPQ calculators for field sales?
+Yes. **NotaBigDeal** is a free, open-source (**AGPLv3**) offline-first Android alternative to heavy desktop spreadsheets and cloud enterprise CPQ tools. Commercial directors, field sales reps, and Key Account Managers (KAMs) can calculate deal P&L, Net-Net waterfalls, Give-Get trade-offs, import landed cost (`FOB -> Warehouse`), and export 2-page vector PDF proposals or Excel/CSV models directly on the phone during live negotiations — even in basements or flights without connectivity.
+
+### How much extra volume or price uplift offsets an extra discount or back-rebate?
+When a buyer demands an additional **`5%`** discount or retro-rebate on a **`30%`** baseline gross margin contract, the required volume lift to protect gross profit is:
+$$\text{Volume Lift}\% = \frac{5\%}{30\% - 5\%} \times 100\% = \mathbf{+20.0\%}$$
+Likewise, hitting a **30% Gross Margin** requires a **42.86% Markup** on COGS (`30% / (100% - 30%)`), not 30%. NotaBigDeal's **Give-Get**, **Margin vs Markup**, and **Promo Break-Even** modules solve these trade-offs automatically and generate ready-to-use negotiation scripts.
+
+### Can I compare invoice factoring vs bank overdraft and audit contract terms with AI?
+Yes. The **Cash Gap & Factoring Arbitrage** engine calculates Net Working Capital (`NWC = AR + Inv - AP`), Cash Conversion Cycle (`CCC = DSO + DIO - DPO`), effective factoring APR, and the exact compensatory price uplift needed, showing whether factoring beats a bank overdraft. For contract risk checks, the top-bar **AI Risk Audit** and **Document OCR Scanner** work with **Gemini 3.8 Flash** online and fall back seamlessly to a **0 ms deterministic offline risk engine** when offline.
