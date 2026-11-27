@@ -1,5 +1,8 @@
 # NotaBigDeal — Enterprise B2B Pricing Engine, Deal Desk & Negotiation Workstation
 
+[![Download Signed APK v1.4.2](https://img.shields.io/badge/DOWNLOAD_APK-v1.4.2_(Android_8.0%2B)-10B981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/latest)
+**👉 [Direct Download: Signed APK v1.4.2](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/latest)** &nbsp;|&nbsp; [🌐 Product Page](https://smokingjohnny13-rgb.github.io/b2b-financial-calculator/)
+
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--35%2C%20compileSdk%2036)-green.svg)](https://developer.android.com)
 [![Release](https://img.shields.io/badge/Release-Signed%20APK%20v1.4.2-10B981.svg)](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.2)
 [![AlternativeTo](https://img.shields.io/badge/AlternativeTo-NotaBigDeal-00AEEF.svg)](https://alternativeto.net/software/notabigdeal/)
