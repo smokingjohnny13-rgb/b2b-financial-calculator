@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,6 +53,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.calculator.CurrencyCreditLegResult
@@ -200,11 +204,16 @@ fun MultiCurrencyCreditCard(
                     .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val hasForeignLeg = result.legs.any { !it.currencyCode.equals(result.baseCurrency, ignoreCase = true) }
                 MetricCard(
                     title = tr("Rate with Hedge", "Ставка с хеджем"),
                     value = "${result.weightedEffectiveRateWithHedgePct}%",
                     subtitle = "${tr("Base rate", "Базовая ставка")}: ${result.weightedInterestRatePct}%",
-                    badgeText = if (isHedgeEnabled) "+${hedgeCostInput}% ${tr("insurance", "страховка")}" else tr("No hedge", "Без страховки"),
+                    badgeText = when {
+                        !isHedgeEnabled -> tr("No hedge", "Без страховки")
+                        !hasForeignLeg -> tr("Domestic (0% FX)", "Своя валюта (0% FX)")
+                        else -> "+${hedgeCostInput}% ${tr("insurance", "страховка")}"
+                    },
                     badgeColor = if (isHedgeEnabled) EmeraldPrimary else GoldAccent,
                     modifier = Modifier
                         .weight(1f)
@@ -320,11 +329,11 @@ fun MultiCurrencyCreditCard(
                         )
                     }
 
-                    AnimatedVisibility(visible = isHedgeEnabled) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (isHedgeEnabled) {
                             FinancialInputField(
                                 label = tr("Hedge Cost (% p.a.)", "Стоимость хеджа (% год.)"),
                                 value = hedgeCostInput,
@@ -336,18 +345,18 @@ fun MultiCurrencyCreditCard(
                                 modifier = Modifier.weight(1f),
                                 testTag = "input_credit_hedge_cost"
                             )
-                            FinancialInputField(
-                                label = tr("Expected FX Shock (%)", "Сценарий скачка валюты (%)"),
-                                value = fxShiftInput,
-                                onValueChange = {
-                                    viewModel.creditExpectedFxShiftPct.value = it
-                                    viewModel.updateMultiCreditCalculations()
-                                },
-                                suffix = "%",
-                                modifier = Modifier.weight(1f),
-                                testTag = "input_credit_fx_shift"
-                            )
                         }
+                        FinancialInputField(
+                            label = tr("Expected FX Shock (%)", "Сценарий скачка валюты (%)"),
+                            value = fxShiftInput,
+                            onValueChange = {
+                                viewModel.creditExpectedFxShiftPct.value = it
+                                viewModel.updateMultiCreditCalculations()
+                            },
+                            suffix = "%",
+                            modifier = Modifier.weight(1f),
+                            testTag = "input_credit_fx_shift"
+                        )
                     }
                 }
             }
@@ -385,13 +394,9 @@ fun MultiCurrencyCreditCard(
                     result.legs.forEach { leg ->
                         CurrencyLegCardItem(
                             leg = leg,
-                            baseCurrencyCode = activeCurrency.code,
-                            onRateChanged = { newRate ->
-                                viewModel.updateCreditCurrencyRate(leg.currencyCode, newRate)
-                            },
-                            onAllocationChanged = { newAlloc ->
-                                viewModel.updateCreditAllocation(leg.currencyCode, newAlloc)
-                            }
+                            baseCurrencyCode = result.baseCurrency,
+                            isHedgeEnabled = isHedgeEnabled,
+                            formatBaseCurrency = viewModel::formatCurrency
                         )
                     }
                 }
@@ -402,8 +407,10 @@ fun MultiCurrencyCreditCard(
                 onClick = { viewModel.applyCreditHedgedRateToFinancing() },
                 colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
                 shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .testTag("btn_apply_credit_to_financing")
             ) {
                 Icon(Icons.Default.AccountBalance, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
@@ -412,7 +419,9 @@ fun MultiCurrencyCreditCard(
                     text = "${tr("Apply rate", "Применить ставку")} ${result.weightedEffectiveRateWithHedgePct}% ${tr("to deal financing", "к финансированию сделки")}",
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -423,8 +432,8 @@ fun MultiCurrencyCreditCard(
 private fun CurrencyLegCardItem(
     leg: CurrencyCreditLegResult,
     baseCurrencyCode: String,
-    onRateChanged: (Double) -> Unit,
-    onAllocationChanged: (Double) -> Unit
+    isHedgeEnabled: Boolean,
+    formatBaseCurrency: (Double) -> String
 ) {
     Box(
         modifier = Modifier
@@ -520,26 +529,33 @@ private fun CurrencyLegCardItem(
                 }
 
                 Column(modifier = Modifier.weight(1.2f), horizontalAlignment = Alignment.End) {
+                    val isForeign = !leg.currencyCode.equals(baseCurrencyCode, ignoreCase = true)
+                    val displayedRepayment = if (isHedgeEnabled) leg.totalRepaymentInBaseHedged else leg.totalRepaymentInBaseUnhedged
                     Text(
-                        text = tr("Repayment (Hedged)", "Возврат (с хеджем)"),
+                        text = if (isHedgeEnabled) {
+                            tr("Repayment (Hedged)", "Возврат (с хеджем)")
+                        } else {
+                            tr("Repayment (Unhedged)", "Возврат (без хеджа)")
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 10.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                        textAlign = TextAlign.End
                     )
                     Text(
-                        text = "$baseCurrencyCode ${String.format(Locale.US, "%,.0f", leg.totalRepaymentInBaseHedged)}",
+                        text = formatBaseCurrency(displayedRepayment),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
-                        color = EmeraldPrimary,
+                        color = if (isHedgeEnabled || !isForeign) EmeraldPrimary else GoldAccent,
                         softWrap = false,
                         maxLines = 1,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End
                     )
                 }
             }
 
-            if (leg.isHedgeProfitable) {
+            if (isHedgeEnabled && leg.isHedgeProfitable) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -554,14 +570,15 @@ private fun CurrencyLegCardItem(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "$baseCurrencyCode ${String.format(Locale.US, "%,.0f", leg.totalRepaymentInBaseUnhedged)} (+${String.format(Locale.US, "%,.0f", leg.fxRiskDeltaInBase)})",
+                        text = "${formatBaseCurrency(leg.totalRepaymentInBaseUnhedged)} (+${formatBaseCurrency(leg.fxRiskDeltaInBase)})",
                         style = MaterialTheme.typography.labelSmall,
                         color = GoldAccent,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 9.sp,
                         softWrap = false,
                         maxLines = 1,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End
                     )
                 }
             }

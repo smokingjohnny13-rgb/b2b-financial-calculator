@@ -371,6 +371,12 @@ class KamAndVaultController(
         _blendedBasketResult.value = CommercialAnalystEngine.calculateBlendedBasket(CommercialAnalystEngine.DEFAULT_BASKET_ITEMS)
     }
 
+    fun restoreBasketItems(items: List<BasketSkuItem>) {
+        if (items.isEmpty()) return
+        _basketItems.value = items
+        _blendedBasketResult.value = CommercialAnalystEngine.calculateBlendedBasket(items)
+    }
+
     fun updateRebateSimulation() {
         _rebateSimulationResult.value = CommercialAnalystEngine.simulateRebateTiers(
             actualVolume = rebateActualVolume.value.toCleanDouble() ?: 120000.0,

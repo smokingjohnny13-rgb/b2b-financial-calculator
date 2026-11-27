@@ -22,8 +22,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CurrencyExchange
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +68,9 @@ fun CurrencySelectionDialog(
 ) {
     val activeCurrency by viewModel.activeCurrency.collectAsState()
     val allCurrencies by viewModel.customCurrencies.collectAsState()
+    val isFxRefreshing by viewModel.isFxRatesRefreshing.collectAsState()
+    val fxPoints by viewModel.fxAvailablePoints.collectAsState()
+    val fxSelectedPointId by viewModel.fxSelectedPointId.collectAsState()
     val currentLang = LocalAppLanguage.current
 
     var isAddingCustom by remember { mutableStateOf(false) }
@@ -115,6 +120,30 @@ fun CurrencySelectionDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
+
+                val activeFxPoint = fxPoints.firstOrNull { it.id == fxSelectedPointId }
+                OutlinedButton(
+                    onClick = { viewModel.refreshLiveFxRates() },
+                    enabled = !isFxRefreshing,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("btn_dialog_refresh_fx")
+                ) {
+                    if (isFxRefreshing) {
+                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    val label = when {
+                        isFxRefreshing -> tr("Updating live FX rates...", "Загрузка курсов с интернета...")
+                        activeFxPoint != null -> {
+                            val name = if (currentLang == AppLanguage.RU) activeFxPoint.providerNameRu else activeFxPoint.providerNameEn
+                            "${tr("Update Rates", "Обновить курсы")} ($name)"
+                        }
+                        else -> tr("Update Rates Online", "Обновить курсы с интернета")
+                    }
+                    Text(label, fontSize = 11.sp, maxLines = 1)
+                }
 
                 // Quick Currency List
                 LazyColumn(

@@ -66,13 +66,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Brush
@@ -168,11 +171,22 @@ fun BigDealAppRoot(
     viewModel: BigDealViewModel,
     snackbarHostState: SnackbarHostState
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val selectedTab by viewModel.selectedTabIndex.collectAsState()
     var showCurrencyDialog by remember { mutableStateOf(false) }
     var showAiAuditDialog by remember { mutableStateOf(false) }
     var showFormulaGlossary by remember { mutableStateOf(false) }
     var showPdfExportMenu by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.saveDraftNow()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val activeCurrency by viewModel.activeCurrency.collectAsState()
     val tabs = NavigationTab.values()
@@ -592,7 +606,7 @@ fun BigDealAppRoot(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(ExecutiveSurfaceVariant)
-                                    .clickable { selectedTab = 5 }
+                                    .clickable { viewModel.selectTab(5) }
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
@@ -628,7 +642,7 @@ fun BigDealAppRoot(
                         }
                         NavigationBarItem(
                             selected = selected,
-                            onClick = { selectedTab = index },
+                            onClick = { viewModel.selectTab(index) },
                             icon = {
                                 Icon(
                                     imageVector = tab.icon,
@@ -667,8 +681,8 @@ fun BigDealAppRoot(
                         0 -> FinancingFxScreen(viewModel = viewModel)
                         1 -> LandedCostScreen(
                             viewModel = viewModel,
-                            onNavigateToMargin = { selectedTab = 2 },
-                            onNavigateToDeal = { selectedTab = 5 }
+                            onNavigateToMargin = { viewModel.selectTab(2) },
+                            onNavigateToDeal = { viewModel.selectTab(5) }
                         )
                         2 -> MarginMarkupScreen(viewModel = viewModel)
                         3 -> PipelineLtvScreen(viewModel = viewModel)

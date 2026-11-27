@@ -5,7 +5,7 @@
 [![AlternativeTo](https://img.shields.io/badge/AlternativeTo-NotaBigDeal-00AEEF.svg)](https://alternativeto.net/software/notabigdeal/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/Интерфейс-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Тесты-82%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Тесты-86%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
 [![Архитектура](https://img.shields.io/badge/Архитектура-Модульный%20MVVM%20%2B%20AppContainer%20DI-orange.svg)]()
 [![AI Движок](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200мс%20Офлайн-blueviolet.svg)]()
 [![Отчеты](https://img.shields.io/badge/Отчеты-2--стр.%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
@@ -256,7 +256,7 @@ com.example
   - **Obsidian Executive Dark**: ночная палитра (`#0B101D`) с изумрудными акцентами (`#10B981`) для комфортной работы в темных помещениях;
   - **Nordic Light Slate**: мягкая дневная палитра (`#F4F6F9`) для презентаций на проекторах;
 - **Нулевые внешние библиотеки для PDF и Excel**: чистый нативный Canvas и прямой байтовый поток без раздувания APK и утечек памяти;
-- **Автоматизированное тестирование**: 82 JVM unit-теста (математика, контроллеры, амортизация, факторинг, OCR, CSV и План-Факт) плюс 6 тестов правил безопасности Firestore в эмуляторе.
+- **Автоматизированное тестирование**: 86 JVM unit-тестов (математика, контроллеры, амортизация, факторинг, OCR, CSV и План-Факт) плюс 6 тестов правил безопасности Firestore в эмуляторе.
 
 ---
 
@@ -293,7 +293,7 @@ gradle bundleRelease
 gradle :app:testDebugUnitTest
 firebase emulators:exec --only firestore "node --test firestore.test.js"
 ```
-*(82 unit-теста + 6 тестов правил Firestore, 100% успешно)*.
+*(86 unit-тестов + 6 тестов правил Firestore, 100% успешно)*.
 
 ---
 

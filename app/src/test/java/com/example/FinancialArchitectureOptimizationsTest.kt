@@ -377,4 +377,207 @@ class FinancialArchitectureOptimizationsTest {
         val componentsSum = direct.fobPrice + direct.freightAmount + direct.customsDutyAmount + direct.importVatAmount + direct.brokerFeesAmount
         assertEquals(direct.landedCost, componentsSum, 0.05)
     }
+
+    @Test
+    fun `test multi currency credit preserves precision on low-unit base and syncs currency switch`() {
+        val kztToUsd = MultiCurrencyCreditEngine.calculate(
+            dealAmount = 100000.0,
+            baseCurrencyCode = "KZT",
+            tenureMonths = 12,
+            legsInput = listOf(
+                CurrencyCreditLegInput("USD", 10.0, 100.0, 2.5, 0.0, isHedged = false)
+            )
+        )
+        assertEquals(110000.0, kztToUsd.totalRepaymentInBaseUnhedged, 0.5)
+
+        val domesticOnly = MultiCurrencyCreditEngine.calculate(
+            dealAmount = 50000.0,
+            baseCurrencyCode = "BYN",
+            tenureMonths = 12,
+            legsInput = listOf(
+                CurrencyCreditLegInput("BYN", 12.0, 100.0, 3.0, 10.0, isHedged = true)
+            )
+        )
+        assertEquals(0.0, domesticOnly.totalHedgeCostInBase, 0.01)
+        assertEquals(domesticOnly.totalRepaymentInBaseHedged, domesticOnly.totalRepaymentInBaseUnhedged, 0.01)
+
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
+        val session = com.example.ui.viewmodel.DealSessionState(scope)
+        val controller = com.example.ui.viewmodel.FinancingController(session)
+        session.selectActiveCurrency("BYN", 120000.0)
+        controller.updateMultiCreditCalculations()
+        assertEquals("BYN", controller.multiCreditResult.value.baseCurrency)
+        assertEquals("Br", controller.multiCreditResult.value.baseCurrencySymbol)
+    }
+
+    @Test
+    fun `test live fx ranking auto best vs manual point and session sync`() {
+        val now = 1_700_000_000_000L
+        val nbrbPoint = com.example.data.repository.FxRateSourcePoint(
+            id = "nbrb_official",
+            country = com.example.data.repository.FxCountryRegion.BY,
+            providerNameEn = "NBRB",
+            providerNameRu = "НБРБ",
+            pointDetailsEn = "Official",
+            pointDetailsRu = "Официальный",
+            ratesToUsd = mapOf("USD" to 1.0, "BYN" to 3.25, "EUR" to 0.92),
+            fetchedAtMillis = now,
+            isCentralBank = true
+        )
+        val bankPointBest = com.example.data.repository.FxRateSourcePoint(
+            id = "belarusbank_best",
+            country = com.example.data.repository.FxCountryRegion.BY,
+            providerNameEn = "Belarusbank #1",
+            providerNameRu = "Беларусбанк №1",
+            pointDetailsEn = "Minsk",
+            pointDetailsRu = "Минск",
+            ratesToUsd = mapOf("USD" to 1.0, "BYN" to 3.31, "EUR" to 0.94),
+            fetchedAtMillis = now,
+            isCentralBank = false
+        )
+
+        val rankedUsdByn = com.example.data.repository.LiveFxRatesService.rankPointsForPair(
+            points = listOf(nbrbPoint, bankPointBest),
+            baseCode = "USD",
+            targetCode = "BYN",
+            region = com.example.data.repository.FxCountryRegion.BY
+        )
+        assertEquals("belarusbank_best", rankedUsdByn.first().id)
+        assertEquals(
+            "nbrb_official",
+            com.example.data.repository.LiveFxRatesService.findCentralBankPoint(
+                listOf(bankPointBest, nbrbPoint),
+                com.example.data.repository.FxCountryRegion.BY
+            )?.id
+        )
+
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
+        val session = com.example.ui.viewmodel.DealSessionState(scope)
+        val controller = com.example.ui.viewmodel.FinancingController(session)
+        session.isClientCountryEnabled.value = true
+        session.fxCountryRegion.value = com.example.data.repository.FxCountryRegion.BY
+        session.fxAvailablePoints.value = listOf(nbrbPoint, bankPointBest)
+        session.targetCurrency.value = "BYN"
+
+        // Market/Bank Auto mode selects best USD -> BYN rate (3.31)
+        session.fxRateMode.value = com.example.data.repository.FxRateMode.MARKET_BANK
+        val autoChosen = session.applyBestOrSelectedFxPoint(1000.0)
+        assertEquals("belarusbank_best", autoChosen?.id)
+        assertEquals(3310.0, session.convertedDealValue.value, 0.01)
+
+        // Switching mode to Central Bank picks NBRB (3.25)
+        session.fxRateMode.value = com.example.data.repository.FxRateMode.CENTRAL_BANK
+        val cbChosen = session.applyBestOrSelectedFxPoint(1000.0)
+        assertEquals("nbrb_official", cbChosen?.id)
+        assertEquals(3250.0, session.convertedDealValue.value, 0.01)
+
+        // Manual mode switches to Belarusbank (3.31)
+        val manualChosen = session.selectManualFxPoint("belarusbank_best", 1000.0)
+        assertEquals("belarusbank_best", manualChosen?.id)
+        assertFalse(session.isFxAutoBestEnabled.value)
+        assertEquals(3310.0, session.convertedDealValue.value, 0.01)
+
+        // Credit engine reflects updated EUR rate (0.94 from Belarusbank)
+        controller.updateMultiCreditCalculations()
+        val eurLeg = controller.multiCreditResult.value.legs.first { it.currencyCode == "EUR" }
+        assertEquals(0.94, eurLeg.spotCrossRate, 0.001)
+    }
+
+    @Test
+    fun `test workspace draft storage saves restores and recalculates pre-meeting state`() {
+        val store = com.example.data.repository.InMemoryDraftStore()
+        val storage = com.example.data.repository.WorkspaceDraftStorage(store)
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
+
+        val session1 = com.example.ui.viewmodel.DealSessionState(scope)
+        val financing1 = com.example.ui.viewmodel.FinancingController(session1)
+        val pricing1 = com.example.ui.viewmodel.PricingMarginController(session1)
+        val workingCapital1 = com.example.ui.viewmodel.WorkingCapitalController(session1) { 5.0 }
+
+        session1.selectedTabIndex.value = 2
+        session1.dealTitle.value = "МинскКонтракт 2026"
+        session1.clientName.value = "ОАО Глобел"
+        session1.appLanguage.value = com.example.ui.i18n.AppLanguage.RU
+        session1.isDarkTheme.value = false
+        session1.isClientCountryEnabled.value = true
+        session1.fxCountryRegion.value = com.example.data.repository.FxCountryRegion.BY
+        session1.fxRateMode.value = com.example.data.repository.FxRateMode.CENTRAL_BANK
+        session1.targetCurrency.value = "BYN"
+        session1.applyFxSourcePoint(
+            com.example.data.repository.FxRateSourcePoint(
+                id = "nbrb_official",
+                country = com.example.data.repository.FxCountryRegion.BY,
+                providerNameEn = "NBRB",
+                providerNameRu = "НБРБ",
+                pointDetailsEn = "Official",
+                pointDetailsRu = "Официальный",
+                ratesToUsd = mapOf("USD" to 1.0, "BYN" to 3.25, "EUR" to 0.92),
+                fetchedAtMillis = 1_700_000_000_000L,
+                isCentralBank = true
+            ),
+            currentPrincipalAmount = 12000.0
+        )
+
+        financing1.principalAmount.value = "12000"
+        financing1.downPayment.value = "1500"
+        financing1.annualInterestRate.value = "16.94"
+        financing1.tenureMonths.value = "24"
+        financing1.updateFinancing()
+        financing1.creditSelectedCurrencies.value = listOf("USD", "EUR")
+        financing1.creditAllocations.value = mapOf("USD" to 40.0, "EUR" to 60.0)
+        financing1.creditHedgeEnabled.value = false
+        financing1.updateMultiCreditCalculations()
+
+        pricing1.waterfallRsp.value = "140"
+        pricing1.waterfallBackBonus.value = "12"
+        pricing1.updateWaterfallCalculations()
+
+        workingCapital1.termsDays.value = "45"
+        workingCapital1.updatePaymentTermsCalculations()
+
+        storage.saveSnapshot(session1, financing1, pricing1, workingCapital1)
+
+        val session2 = com.example.ui.viewmodel.DealSessionState(scope)
+        val financing2 = com.example.ui.viewmodel.FinancingController(session2)
+        val pricing2 = com.example.ui.viewmodel.PricingMarginController(session2)
+        val workingCapital2 = com.example.ui.viewmodel.WorkingCapitalController(session2) { 5.0 }
+
+        val restored = storage.restoreInto(session2, financing2, pricing2, workingCapital2) {
+            session2.updateCurrencyConversion(financing2.principalAmount.value.replace(",", "").toDoubleOrNull() ?: 0.0)
+            financing2.updateFinancing()
+            financing2.updateMultiCreditCalculations()
+            pricing2.updateWaterfallCalculations()
+            workingCapital2.updatePaymentTermsCalculations()
+        }
+
+        assertTrue(restored)
+        assertEquals(2, session2.selectedTabIndex.value)
+        assertEquals("МинскКонтракт 2026", session2.dealTitle.value)
+        assertEquals("ОАО Глобел", session2.clientName.value)
+        assertEquals(com.example.ui.i18n.AppLanguage.RU, session2.appLanguage.value)
+        assertFalse(session2.isDarkTheme.value)
+        assertTrue(session2.isClientCountryEnabled.value)
+        assertEquals(com.example.data.repository.FxCountryRegion.BY, session2.fxCountryRegion.value)
+        assertEquals(com.example.data.repository.FxRateMode.CENTRAL_BANK, session2.fxRateMode.value)
+        assertEquals(session1.convertedDealValue.value, session2.convertedDealValue.value, 0.01)
+        assertEquals(financing1.amortization.value.periodicPayment, financing2.amortization.value.periodicPayment, 0.01)
+        assertEquals(
+            financing1.multiCreditResult.value.totalRepaymentInBaseUnhedged,
+            financing2.multiCreditResult.value.totalRepaymentInBaseUnhedged,
+            0.01
+        )
+        assertEquals(pricing1.waterfallResult.value.netNetPrice, pricing2.waterfallResult.value.netNetPrice, 0.01)
+        assertEquals(workingCapital1.paymentTermsResult.value.costOfCredit, workingCapital2.paymentTermsResult.value.costOfCredit, 0.01)
+
+        // Disabling remember mode clears draft and prevents restore
+        storage.setRememberEnabled(false)
+        assertFalse(storage.isRememberEnabled())
+        val session3 = com.example.ui.viewmodel.DealSessionState(scope)
+        val financing3 = com.example.ui.viewmodel.FinancingController(session3)
+        val pricing3 = com.example.ui.viewmodel.PricingMarginController(session3)
+        val workingCapital3 = com.example.ui.viewmodel.WorkingCapitalController(session3) { 5.0 }
+        assertFalse(storage.restoreInto(session3, financing3, pricing3, workingCapital3))
+        assertFalse(session3.isRememberDraftEnabled.value)
+        assertEquals("Enterprise Platform & Support Agreement", session3.dealTitle.value)
+    }
 }

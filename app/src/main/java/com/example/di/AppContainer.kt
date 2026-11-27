@@ -6,6 +6,7 @@ import com.example.data.ai.CommercialOcrScanner
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.ClientNegotiationRepository
 import com.example.data.repository.DealRepository
+import com.example.data.repository.WorkspaceDraftStorage
 import com.example.ui.viewmodel.BigDealViewModel
 
 /**
@@ -19,12 +20,14 @@ class AppContainer(context: Context) {
     val clientRepository: ClientNegotiationRepository by lazy { ClientNegotiationRepository(appContext) }
     val aiRiskAuditor: AiDealRiskAuditor by lazy { AiDealRiskAuditor() }
     val commercialOcrScanner: CommercialOcrScanner by lazy { CommercialOcrScanner() }
+    val workspaceDraftStorage: WorkspaceDraftStorage by lazy { WorkspaceDraftStorage(appContext) }
 
     fun createBigDealViewModel(): BigDealViewModel = BigDealViewModel(
         dealRepository = dealRepository,
         authRepository = authRepository,
         clientRepository = clientRepository,
         aiRiskAuditor = aiRiskAuditor,
-        commercialOcrScanner = commercialOcrScanner
+        commercialOcrScanner = commercialOcrScanner,
+        draftStorage = workspaceDraftStorage
     )
 }

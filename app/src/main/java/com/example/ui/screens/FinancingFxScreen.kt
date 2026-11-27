@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,29 +17,39 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Tab
@@ -63,6 +74,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AmortizationScheme
 import com.example.data.model.PaymentFrequency
+import com.example.data.repository.FxCountryRegion
+import com.example.data.repository.FxRateMode
+import com.example.data.repository.LiveFxRatesService
 import com.example.ui.components.CashGapTimelineCard
 import com.example.ui.components.FinancialInputField
 import com.example.ui.components.FxStressTestCard
@@ -70,6 +84,8 @@ import com.example.ui.components.HurdleRoicGuardrailCard
 import com.example.ui.components.MetricCard
 import com.example.ui.components.MultiCurrencyCreditCard
 import com.example.ui.components.PaymentTermsCard
+import com.example.ui.i18n.AppLanguage
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.i18n.tr
 import com.example.ui.theme.ElectricCyan
 import com.example.ui.theme.EmeraldPrimary
@@ -119,13 +135,29 @@ fun FinancingFxScreen(
     val convertedValue by viewModel.convertedDealValue.collectAsState()
     val crossRate by viewModel.currentCrossRate.collectAsState()
     val currencies by viewModel.currencyRates.collectAsState()
+    val fxCountry by viewModel.fxCountryRegion.collectAsState()
+    val isClientCountryEnabled by viewModel.isClientCountryEnabled.collectAsState()
+    val fxRateMode by viewModel.fxRateMode.collectAsState()
+    val fxPoints by viewModel.fxAvailablePoints.collectAsState()
+    val fxSelectedPointId by viewModel.fxSelectedPointId.collectAsState()
+    val isFxAutoBest by viewModel.isFxAutoBestEnabled.collectAsState()
+    val isFxRefreshing by viewModel.isFxRatesRefreshing.collectAsState()
+    val fxLastError by viewModel.fxLastError.collectAsState()
+    val currentLang = LocalAppLanguage.current
 
     var showScheduleTable by remember { mutableStateOf(false) }
     var targetCurrencyDropdownExpanded by remember { mutableStateOf(false) }
+    var showFxSourcesPanel by remember { mutableStateOf(false) }
     var activeSubTab by remember { mutableStateOf(FinancingSubTab.ALL) }
 
     val listState = rememberLazyListState()
     val numberFmt = remember { NumberFormat.getNumberInstance(Locale.US) }
+    val fxAmountFmt = remember {
+        NumberFormat.getNumberInstance(Locale.US).apply {
+            minimumFractionDigits = 2
+            maximumFractionDigits = 2
+        }
+    }
 
     LaunchedEffect(activeSubTab) {
         listState.scrollToItem(0)
@@ -1177,7 +1209,9 @@ fun FinancingFxScreen(
                             .border(1.dp, ExecutiveBorder, RoundedCornerShape(14.dp))
                             .padding(16.dp)
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        val activeFxPoint = fxPoints.firstOrNull { it.id == fxSelectedPointId }
+                        val isRu = currentLang == AppLanguage.RU
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1195,29 +1229,141 @@ fun FinancingFxScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = tr("CROSS-CURRENCY MODELER", "КРОСС-ВАЛЮТНЫЙ КАЛЬКУЛЯТОР"),
+                                        text = tr("CURRENCY CONVERTER", "ВАЛЮТНЫЙ КОНВЕРТЕР"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = ElectricCyan,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
-
-                                Box {
-                                    Button(
-                                        onClick = { targetCurrencyDropdownExpanded = true },
-                                        colors = ButtonDefaults.buttonColors(containerColor = ExecutiveSurfaceVariant),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.testTag("currency_select_button")
+                                Surface(
+                                    onClick = {
+                                        showFxSourcesPanel = true
+                                        viewModel.refreshLiveFxRates()
+                                    },
+                                    enabled = !isFxRefreshing,
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = EmeraldPrimary.copy(alpha = 0.14f),
+                                    border = BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.6f)),
+                                    modifier = Modifier.testTag("btn_refresh_fx_rates")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        if (isFxRefreshing) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(13.dp),
+                                                strokeWidth = 2.dp,
+                                                color = EmeraldPrimary
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = tr("Update FX rates", "Обновить курсы"),
+                                                tint = EmeraldPrimary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "$baseCurrency → $targetCurrency ▾",
+                                            text = if (isFxRefreshing) tr("Syncing...", "Обновление...") else tr("Update Rates", "Обновить курсы"),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            color = EmeraldPrimary,
                                             maxLines = 1,
                                             softWrap = false
                                         )
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    onClick = { showFxSourcesPanel = !showFxSourcesPanel },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = ExecutiveCard,
+                                    border = BorderStroke(1.dp, ExecutiveBorder),
+                                    modifier = Modifier
+                                        .weight(1f, fill = false)
+                                        .testTag("btn_toggle_fx_sources")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Public,
+                                            contentDescription = null,
+                                            tint = if (activeFxPoint != null) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        val pointLabel = when {
+                                            activeFxPoint != null -> {
+                                                val modePrefix = if (isFxAutoBest) tr("Auto", "Авто") else tr("Manual", "Точка")
+                                                val name = if (isRu) activeFxPoint.providerNameRu else activeFxPoint.providerNameEn
+                                                "$modePrefix · $name"
+                                            }
+                                            isClientCountryEnabled -> {
+                                                val regionLabel = if (isRu) fxCountry.shortRu else fxCountry.shortEn
+                                                "${tr("Country", "Страна")}: $regionLabel"
+                                            }
+                                            else -> tr("Global Market Spot", "Рынок (без привязки к стране)")
+                                        }
+                                        Text(
+                                            text = pointLabel,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Icon(
+                                            imageVector = if (showFxSourcesPanel) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Box {
+                                    Surface(
+                                        onClick = { targetCurrencyDropdownExpanded = true },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = ExecutiveSurfaceVariant,
+                                        border = BorderStroke(1.dp, ExecutiveBorder),
+                                        modifier = Modifier.testTag("currency_select_button")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "$baseCurrency → $targetCurrency",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowDropDown,
+                                                contentDescription = tr("Select target currency", "Выбрать целевую валюту"),
+                                                tint = ElectricCyan,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
 
                                     DropdownMenu(
@@ -1249,12 +1395,13 @@ fun FinancingFxScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        text = "$targetCurrency ${numberFmt.format(convertedValue)}",
+                                        text = "$targetCurrency ${fxAmountFmt.format(convertedValue)}",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         softWrap = false,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -1263,20 +1410,334 @@ fun FinancingFxScreen(
                                     horizontalAlignment = Alignment.End
                                 ) {
                                     Text(
-                                        text = tr("PARITY CROSS-RATE", "ПАРИТЕТНЫЙ КРОСС-КУРС"),
+                                        text = tr("EXCHANGE RATE", "КУРС КОНВЕРТАЦИИ"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                        textAlign = TextAlign.End
                                     )
                                     Text(
                                         text = "1 $baseCurrency = $crossRate $targetCurrency",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = ElectricCyan,
                                         fontWeight = FontWeight.SemiBold,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                                        textAlign = TextAlign.End,
                                         softWrap = false,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
+                                }
+                            }
+
+                            val cbPoint = if (isClientCountryEnabled) {
+                                LiveFxRatesService.findCentralBankPoint(fxPoints, fxCountry)
+                            } else {
+                                null
+                            }
+                            val cbCrossRate = cbPoint?.crossRate(baseCurrency, targetCurrency)
+                            if (cbPoint != null && cbCrossRate != null && cbCrossRate > 0.0) {
+                                val cbLabel = if (isRu) cbPoint.providerNameRu else cbPoint.providerNameEn
+                                val spreadPct = ((crossRate - cbCrossRate) / cbCrossRate) * 100.0
+                                val spreadSign = if (spreadPct >= 0.0) "+" else ""
+                                val spreadText = String.format(Locale.US, "%s%.2f%%", spreadSign, spreadPct)
+                                val cbFormatted = String.format(Locale.US, "%.4f", cbCrossRate)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(ExecutiveCard)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "$cbLabel: 1 $baseCurrency = $cbFormatted $targetCurrency",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "${tr("vs CB", "к НБ")}: $spreadText",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (kotlin.math.abs(spreadPct) < 0.05) EmeraldPrimary else GoldAccent,
+                                        fontSize = 10.sp,
+                                        softWrap = false
+                                    )
+                                }
+                            }
+
+                            // Compact Switch: Client Country & Central Bank Reference
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(ExecutiveSurfaceVariant)
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = tr("Client country (Central Bank & Bank)", "Страна клиента (Нацбанк / Банк)"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (isClientCountryEnabled) {
+                                            val regionLabel = if (isRu) fxCountry.shortRu else fxCountry.shortEn
+                                            "${tr("Country", "Страна")}: $regionLabel"
+                                        } else {
+                                            tr("Off — global market rates only", "Выкл — только мировой рынок")
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = isClientCountryEnabled,
+                                    onCheckedChange = { enabled ->
+                                        if (enabled) showFxSourcesPanel = true
+                                        viewModel.setClientCountryEnabled(enabled)
+                                    },
+                                    modifier = Modifier.testTag("switch_client_country"),
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.Black,
+                                        checkedTrackColor = EmeraldPrimary
+                                    )
+                                )
+                            }
+
+                            AnimatedVisibility(visible = showFxSourcesPanel) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    HorizontalDivider(color = ExecutiveBorder, thickness = 0.5.dp)
+
+                                    if (isClientCountryEnabled) {
+                                        Text(
+                                            text = tr("SELECT CLIENT COUNTRY", "ВЫБЕРИТЕ СТРАНУ КЛИЕНТА"),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ElectricCyan,
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            items(FxCountryRegion.entries) { region ->
+                                                val isRegionSelected = region == fxCountry
+                                                FilterChip(
+                                                    selected = isRegionSelected,
+                                                    onClick = { viewModel.setFxCountryRegion(region) },
+                                                    label = {
+                                                        Text(
+                                                            text = if (isRu) region.shortRu else region.shortEn,
+                                                            fontSize = 11.sp
+                                                        )
+                                                    },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = ElectricCyan,
+                                                        selectedLabelColor = Color.Black,
+                                                        containerColor = ExecutiveSurfaceVariant,
+                                                        labelColor = MaterialTheme.colorScheme.onSurface
+                                                    ),
+                                                    border = FilterChipDefaults.filterChipBorder(
+                                                        enabled = true,
+                                                        selected = isRegionSelected,
+                                                        borderColor = ExecutiveBorder
+                                                    )
+                                                )
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            val isMarketBank = fxRateMode == FxRateMode.MARKET_BANK
+                                            FilterChip(
+                                                selected = isMarketBank,
+                                                onClick = { viewModel.setFxRateMode(FxRateMode.MARKET_BANK) },
+                                                label = {
+                                                    Text(
+                                                        text = tr("Market / Bank", "Рынок / Банк"),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = EmeraldPrimary,
+                                                    selectedLabelColor = Color.Black,
+                                                    containerColor = ExecutiveSurfaceVariant,
+                                                    labelColor = MaterialTheme.colorScheme.onSurface
+                                                ),
+                                                border = FilterChipDefaults.filterChipBorder(
+                                                    enabled = true,
+                                                    selected = isMarketBank,
+                                                    borderColor = ExecutiveBorder
+                                                )
+                                            )
+                                            FilterChip(
+                                                selected = !isMarketBank,
+                                                onClick = { viewModel.setFxRateMode(FxRateMode.CENTRAL_BANK) },
+                                                label = {
+                                                    Text(
+                                                        text = tr("Central Bank", "Нацбанк"),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = EmeraldPrimary,
+                                                    selectedLabelColor = Color.Black,
+                                                    containerColor = ExecutiveSurfaceVariant,
+                                                    labelColor = MaterialTheme.colorScheme.onSurface
+                                                ),
+                                                border = FilterChipDefaults.filterChipBorder(
+                                                    enabled = true,
+                                                    selected = !isMarketBank,
+                                                    borderColor = ExecutiveBorder
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(ExecutiveSurfaceVariant)
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = tr("Auto-pick best point", "Автовыбор лучшей точки"),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = if (isFxAutoBest) {
+                                                    tr("Picks highest conversion rate automatically", "Автоматически берёт максимальный курс")
+                                                } else {
+                                                    tr("Manual point selection enabled", "Включён ручной выбор точки")
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Switch(
+                                            checked = isFxAutoBest,
+                                            onCheckedChange = { viewModel.setFxAutoBestEnabled(it) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = Color.Black,
+                                                checkedTrackColor = EmeraldPrimary
+                                            )
+                                        )
+                                    }
+
+                                    if (fxLastError != null) {
+                                        Text(
+                                            text = fxLastError ?: "",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = GoldAccent
+                                        )
+                                    }
+
+                                    if (fxPoints.isEmpty() && !isFxRefreshing) {
+                                        Text(
+                                            text = tr(
+                                                "Tap \"Update Rates\" to search live rates from central banks and market feeds.",
+                                                "Нажмите «Обновить курсы» для загрузки онлайн-курсов нацбанков, банков и рынка."
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            fxPoints.take(6).forEachIndexed { idx, point ->
+                                                val isActive = point.id == fxSelectedPointId
+                                                val quote = point.crossRate(baseCurrency, targetCurrency)
+                                                val quoteText = if (quote != null) {
+                                                    String.format(Locale.US, "%.4f", quote)
+                                                } else {
+                                                    "—"
+                                                }
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(
+                                                            if (isActive) EmeraldPrimary.copy(alpha = 0.14f) else ExecutiveCard
+                                                        )
+                                                        .border(
+                                                            1.dp,
+                                                            if (isActive) EmeraldPrimary else ExecutiveBorder,
+                                                            RoundedCornerShape(8.dp)
+                                                        )
+                                                        .clickable { viewModel.selectManualFxPoint(point.id) }
+                                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            if (idx == 0) {
+                                                                Text(
+                                                                    text = tr("BEST ", "ЛУЧШИЙ "),
+                                                                    fontSize = 9.sp,
+                                                                    fontWeight = FontWeight.ExtraBold,
+                                                                    color = EmeraldPrimary
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = if (isRu) point.providerNameRu else point.providerNameEn,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onSurface,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = if (isRu) point.pointDetailsRu else point.pointDetailsEn,
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            fontSize = 10.sp,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(
+                                                            text = "$quoteText $targetCurrency",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (isActive) EmeraldPrimary else ElectricCyan,
+                                                            softWrap = false
+                                                        )
+                                                        if (isActive) {
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                            Icon(
+                                                                imageVector = Icons.Default.Check,
+                                                                contentDescription = null,
+                                                                tint = EmeraldPrimary,
+                                                                modifier = Modifier.size(14.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

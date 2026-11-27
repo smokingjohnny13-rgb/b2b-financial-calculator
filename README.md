@@ -5,7 +5,7 @@
 [![AlternativeTo](https://img.shields.io/badge/AlternativeTo-NotaBigDeal-00AEEF.svg)](https://alternativeto.net/software/notabigdeal/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org)
 [![UI](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Tests-82%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-86%20Unit%20%2B%206%20Firestore%20Rules%20(100%25)-brightgreen.svg)]()
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20MVVM%20%2B%20AppContainer%20DI-orange.svg)]()
 [![AI Engine](https://img.shields.io/badge/AI-Gemini%203.8%20Flash%20%2B%200ms%20Offline-blueviolet.svg)]()
 [![Reports](https://img.shields.io/badge/Reports-2--Page%20Vector%20PDF%20%2B%20Excel%2FCSV%20(BOM)-red.svg)]()
@@ -256,7 +256,7 @@ com.example
   - **Obsidian Executive Dark**: Deep midnight palette (`#0B101D`) with emerald accents (`#10B981`) designed to reduce visual fatigue during evening sessions;
   - **Nordic Light Slate**: Soft glare-free paper palette (`#F4F6F9`) with crisp slate typography (`#0F172A`) for boardroom projectors and daylight;
 - **Zero Third-Party PDF/Excel Bloat**: Pure native vector canvas and byte-stream CSV generation with zero external heavy libraries, zero memory leaks, and native `ACTION_SEND` intent sharing;
-- **Comprehensive Automated Testing**: 82 JVM unit tests covering financial math, controllers, amortization, Tornado sensitivities, factoring arbitrage, OCR sanitization, and CSV exports, plus 6 Firestore emulator security rule tests.
+- **Comprehensive Automated Testing**: 86 JVM unit tests covering financial math, controllers, amortization, Tornado sensitivities, factoring arbitrage, OCR sanitization, and CSV exports, plus 6 Firestore emulator security rule tests.
 
 ---
 
@@ -293,7 +293,7 @@ Execute the JVM test suite and Firestore security rule tests:
 gradle :app:testDebugUnitTest
 firebase emulators:exec --only firestore "node --test firestore.test.js"
 ```
-*(82 JVM unit tests + 6 Firestore rule tests, 100% passing)*.
+*(86 JVM unit tests + 6 Firestore rule tests, 100% passing)*.
 
 ---
 

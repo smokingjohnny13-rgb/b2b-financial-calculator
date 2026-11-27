@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,10 +47,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,6 +103,7 @@ fun DealVaultScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isPrivacyMode by viewModel.isPrivacyModeEnabled.collectAsState()
+    val isRememberDraftEnabled by viewModel.isRememberDraftEnabled.collectAsState()
 
     val currentTitle by viewModel.dealTitle.collectAsState()
     val currentClient by viewModel.clientName.collectAsState()
@@ -109,11 +114,16 @@ fun DealVaultScreen(
     var showSaveDialog by remember { mutableStateOf(false) }
     var saveTitleInput by remember { mutableStateOf(currentTitle) }
     var saveClientInput by remember { mutableStateOf(currentClient) }
-    var vaultSubTab by remember { mutableIntStateOf(0) } // 0: Deal Approval & Scoring, 1: Client History, 2: Vault & PDF
+    var vaultSubTab by rememberSaveable { mutableIntStateOf(0) } // 0: Deal Approval & Scoring, 1: Client History, 2: Vault & PDF
+    val listState = rememberLazyListState()
+    LaunchedEffect(vaultSubTab) {
+        listState.scrollToItem(0)
+    }
 
     val dateFmt = remember { SimpleDateFormat("MMM dd, yyyy", Locale.US) }
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .testTag("deal_vault_screen")
@@ -155,35 +165,41 @@ fun DealVaultScreen(
             ) {
                 VaultSubTabButton(
                     selected = vaultSubTab == 0,
-                    label = tr("Approval & Scoring", "Согласование и Скоринг"),
+                    label = tr("Approval &\nScoring", "Согласование\nи скоринг"),
                     icon = Icons.Default.Gavel,
                     onClick = { vaultSubTab = 0 },
-                    modifier = Modifier.weight(1.1f)
+                    modifier = Modifier
+                        .weight(1.05f)
+                        .testTag("vault_subtab_0")
                 )
                 VaultSubTabButton(
                     selected = vaultSubTab == 1,
-                    label = tr("Client History", "История клиентов"),
+                    label = tr("Client\nHistory", "История\nклиентов"),
                     icon = Icons.Default.Business,
                     onClick = { vaultSubTab = 1 },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("vault_subtab_1")
                 )
                 VaultSubTabButton(
                     selected = vaultSubTab == 2,
-                    label = tr("Vault & PDF", "Хранилище"),
+                    label = tr("Vault &\nPDF", "Хранилище\nи PDF"),
                     icon = Icons.Default.PictureAsPdf,
                     onClick = { vaultSubTab = 2 },
-                    modifier = Modifier.weight(0.85f)
+                    modifier = Modifier
+                        .weight(0.95f)
+                        .testTag("vault_subtab_2")
                 )
             }
         }
 
         if (vaultSubTab == 0) {
-            item {
+            item(key = "subtab_approval") {
                 DealApprovalScoringCard(viewModel = viewModel)
                 Spacer(modifier = Modifier.height(36.dp))
             }
         } else if (vaultSubTab == 1) {
-            item {
+            item(key = "subtab_clients") {
                 ClientNegotiationCard(viewModel = viewModel)
                 Spacer(modifier = Modifier.height(36.dp))
             }
@@ -360,6 +376,49 @@ fun DealVaultScreen(
                             checked = isPrivacyMode,
                             onCheckedChange = { viewModel.setPrivacyMode(it) },
                             modifier = Modifier.testTag("switch_privacy_mode")
+                        )
+                    }
+
+                    HorizontalDivider(color = ExecutiveBorder, thickness = 0.5.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = if (isRememberDraftEnabled) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = tr("Remember Last Session", "Запоминать последние данные"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = tr(
+                                        "Auto-save & restore all inputs for meetings",
+                                        "Автосохранение расчётов к следующей встрече"
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isRememberDraftEnabled,
+                            onCheckedChange = { viewModel.setRememberDraftEnabled(it) },
+                            modifier = Modifier.testTag("switch_remember_draft")
                         )
                     }
                 }
@@ -905,13 +964,14 @@ private fun VaultSubTabButton(
     modifier: Modifier = Modifier
 ) {
     Surface(
+        onClick = onClick,
         color = if (selected) MaterialTheme.colorScheme.primary else ExecutiveCard,
         shape = RoundedCornerShape(10.dp),
         border = androidx.compose.foundation.BorderStroke(
             width = 1.dp,
             color = if (selected) MaterialTheme.colorScheme.primary else ExecutiveBorder
         ),
-        modifier = modifier.clickable { onClick() }
+        modifier = modifier.heightIn(min = 48.dp)
     ) {
         Row(
             modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
@@ -924,15 +984,17 @@ private fun VaultSubTabButton(
                 tint = if (selected) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(15.dp)
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = 11.sp,
+                fontSize = 10.5.sp,
+                lineHeight = 13.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                softWrap = false
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

@@ -266,7 +266,7 @@ app/src/main/java/com/example/
 ---
 
 ### 6. Руководство по проверке и тестированию
-- Запуск JVM-тестов: `gradle :app:testDebugUnitTest` (**82 пройденных теста**, 0 ошибок):
+- Запуск JVM-тестов: `gradle :app:testDebugUnitTest` (**86 пройденных тестов**, 0 ошибок):
   - `KamAndCommercialAnalystTest` — тесты коридора BATNA, штрафов SLA, trade-off и корзины SKU;
   - `BigDealCalculatorsTest` — тесты LTV/CAC, амортизации, водопада цен, кассового разрыва, FX стресс-теста и ROIC;
   - `FinancialArchitectureOptimizationsTest` — тесты двухставочного грейс-периода, досрочного погашения, факторинга P2, Tornado, Plan-Fact моста и локализованного ввода;

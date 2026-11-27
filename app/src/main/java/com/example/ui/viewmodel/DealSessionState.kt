@@ -1,6 +1,10 @@
 package com.example.ui.viewmodel
 
 import com.example.data.model.CurrencyRate
+import com.example.data.repository.FxCountryRegion
+import com.example.data.repository.FxRateMode
+import com.example.data.repository.FxRateSourcePoint
+import com.example.data.repository.LiveFxRatesService
 import com.example.domain.calculator.CurrencyEngine
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.str
@@ -30,6 +34,8 @@ class DealSessionState(
     val appLanguage = MutableStateFlow(AppLanguage.EN)
     val isDarkTheme = MutableStateFlow(true)
     val isPrivacyModeEnabled = MutableStateFlow(false)
+    val selectedTabIndex = MutableStateFlow(0)
+    val isRememberDraftEnabled = MutableStateFlow(true)
 
     val activeCurrency = MutableStateFlow(CurrencyEngine.findByCode("USD"))
     val customCurrencies = MutableStateFlow(CurrencyEngine.DEFAULT_CURRENCIES)
@@ -37,6 +43,16 @@ class DealSessionState(
     val targetCurrency = MutableStateFlow("EUR")
     val convertedDealValue = MutableStateFlow(CurrencyEngine.convert(120000.0, "USD", "EUR"))
     val currentCrossRate = MutableStateFlow(CurrencyEngine.getCrossRate("USD", "EUR"))
+
+    val fxCountryRegion = MutableStateFlow(FxCountryRegion.ALL)
+    val isClientCountryEnabled = MutableStateFlow(false)
+    val fxRateMode = MutableStateFlow(FxRateMode.MARKET_BANK)
+    val fxAvailablePoints = MutableStateFlow<List<FxRateSourcePoint>>(emptyList())
+    val fxSelectedPointId = MutableStateFlow<String?>(null)
+    val isFxAutoBestEnabled = MutableStateFlow(true)
+    val isFxRatesRefreshing = MutableStateFlow(false)
+    val fxLastUpdatedAt = MutableStateFlow<Long?>(null)
+    val fxLastError = MutableStateFlow<String?>(null)
 
     private val currencyNumberFormat = NumberFormat.getNumberInstance(Locale.US).apply {
         maximumFractionDigits = 2
@@ -76,7 +92,11 @@ class DealSessionState(
 
     fun setTargetCurrency(code: String, currentPrincipalAmount: Double) {
         targetCurrency.value = code
-        updateCurrencyConversion(currentPrincipalAmount)
+        if (isFxAutoBestEnabled.value && fxAvailablePoints.value.isNotEmpty()) {
+            applyBestOrSelectedFxPoint(currentPrincipalAmount)
+        } else {
+            updateCurrencyConversion(currentPrincipalAmount)
+        }
     }
 
     fun updateCurrencyConversion(currentPrincipalAmount: Double) {
@@ -97,11 +117,65 @@ class DealSessionState(
         selectedCurrency.value = code
         val found = CurrencyEngine.findByCode(code, customCurrencies.value)
         activeCurrency.value = found
-        updateCurrencyConversion(currentPrincipalAmount)
+        if (isFxAutoBestEnabled.value && fxAvailablePoints.value.isNotEmpty()) {
+            applyBestOrSelectedFxPoint(currentPrincipalAmount)
+        } else {
+            updateCurrencyConversion(currentPrincipalAmount)
+        }
         emitLocalized(
             "Currency changed: ${found.code} (${found.symbol})",
             "Валюта изменена: ${found.code} (${found.symbol})"
         )
+    }
+
+    fun applyFxSourcePoint(point: FxRateSourcePoint, currentPrincipalAmount: Double) {
+        val updatedList = customCurrencies.value.map { existing ->
+            val newRate = point.ratesToUsd[existing.code.uppercase()]
+            if (newRate != null && newRate.isFinite() && newRate > 0.0) {
+                existing.copy(rateToBaseUsd = newRate)
+            } else {
+                existing
+            }
+        }
+        customCurrencies.value = updatedList
+        currencyRates.value = updatedList
+        activeCurrency.value = CurrencyEngine.findByCode(selectedCurrency.value, updatedList)
+        fxSelectedPointId.value = point.id
+        fxLastError.value = null
+        updateCurrencyConversion(currentPrincipalAmount)
+    }
+
+    fun applyBestOrSelectedFxPoint(currentPrincipalAmount: Double): FxRateSourcePoint? {
+        val ranked = LiveFxRatesService.rankPointsForPair(
+            points = fxAvailablePoints.value,
+            baseCode = selectedCurrency.value,
+            targetCode = targetCurrency.value,
+            region = fxCountryRegion.value,
+            mode = fxRateMode.value,
+            useClientCountry = isClientCountryEnabled.value
+        )
+        if (ranked.isEmpty()) return null
+        fxAvailablePoints.value = ranked
+
+        val chosen = if (isFxAutoBestEnabled.value) {
+            ranked.first()
+        } else {
+            ranked.firstOrNull { it.id == fxSelectedPointId.value } ?: ranked.first()
+        }
+        applyFxSourcePoint(chosen, currentPrincipalAmount)
+        return chosen
+    }
+
+    fun selectManualFxPoint(pointId: String, currentPrincipalAmount: Double): FxRateSourcePoint? {
+        val point = fxAvailablePoints.value.firstOrNull { it.id == pointId } ?: return null
+        isFxAutoBestEnabled.value = false
+        applyFxSourcePoint(point, currentPrincipalAmount)
+        return point
+    }
+
+    fun setFxAutoBestEnabled(enabled: Boolean, currentPrincipalAmount: Double): FxRateSourcePoint? {
+        isFxAutoBestEnabled.value = enabled
+        return if (enabled) applyBestOrSelectedFxPoint(currentPrincipalAmount) else null
     }
 
     fun addCustomCurrency(

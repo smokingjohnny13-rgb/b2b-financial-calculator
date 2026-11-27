@@ -27,6 +27,11 @@ import com.example.data.model.SavedDeal
 import com.example.data.repository.AuthRepository
 import com.example.data.repository.ClientNegotiationRepository
 import com.example.data.repository.DealRepository
+import com.example.data.repository.FxCountryRegion
+import com.example.data.repository.FxRateMode
+import com.example.data.repository.FxRateSourcePoint
+import com.example.data.repository.LiveFxRatesService
+import com.example.data.repository.WorkspaceDraftStorage
 import com.example.domain.calculator.BasketSkuItem
 import com.example.domain.calculator.BlendedBasketResult
 import com.example.domain.calculator.CashGapResult
@@ -52,11 +57,15 @@ import com.example.ui.i18n.AppLanguage
 import com.example.util.toCleanDouble
 import com.example.util.toCleanInt
 import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,12 +75,15 @@ import java.util.Locale
  * Thin ViewModel facade composing feature-level StateHolder controllers
  * so all screens and cards keep a single stable entry point without business-logic bloat.
  */
+@OptIn(FlowPreview::class)
 class BigDealViewModel(
     private val dealRepository: DealRepository,
     private val authRepository: AuthRepository,
     private val clientRepository: ClientNegotiationRepository = ClientNegotiationRepository(),
     aiRiskAuditor: AiDealRiskAuditor = AiDealRiskAuditor(),
-    commercialOcrScanner: CommercialOcrScanner = CommercialOcrScanner()
+    commercialOcrScanner: CommercialOcrScanner = CommercialOcrScanner(),
+    private val fxRatesService: LiveFxRatesService = LiveFxRatesService(),
+    private val draftStorage: WorkspaceDraftStorage = WorkspaceDraftStorage()
 ) : ViewModel() {
 
     val session = DealSessionState(viewModelScope)
@@ -111,12 +123,23 @@ class BigDealViewModel(
     val appLanguage: MutableStateFlow<AppLanguage> get() = session.appLanguage
     val isDarkTheme: MutableStateFlow<Boolean> get() = session.isDarkTheme
     val isPrivacyModeEnabled: MutableStateFlow<Boolean> get() = session.isPrivacyModeEnabled
+    val selectedTabIndex: MutableStateFlow<Int> get() = session.selectedTabIndex
+    val isRememberDraftEnabled: MutableStateFlow<Boolean> get() = session.isRememberDraftEnabled
     val activeCurrency: MutableStateFlow<CurrencyRate> get() = session.activeCurrency
     val customCurrencies: MutableStateFlow<List<CurrencyRate>> get() = session.customCurrencies
     val currencyRates: MutableStateFlow<List<CurrencyRate>> get() = session.currencyRates
     val targetCurrency: MutableStateFlow<String> get() = session.targetCurrency
     val convertedDealValue: MutableStateFlow<Double> get() = session.convertedDealValue
     val currentCrossRate: MutableStateFlow<Double> get() = session.currentCrossRate
+    val fxCountryRegion: MutableStateFlow<FxCountryRegion> get() = session.fxCountryRegion
+    val isClientCountryEnabled: MutableStateFlow<Boolean> get() = session.isClientCountryEnabled
+    val fxRateMode: MutableStateFlow<FxRateMode> get() = session.fxRateMode
+    val fxAvailablePoints: MutableStateFlow<List<FxRateSourcePoint>> get() = session.fxAvailablePoints
+    val fxSelectedPointId: MutableStateFlow<String?> get() = session.fxSelectedPointId
+    val isFxAutoBestEnabled: MutableStateFlow<Boolean> get() = session.isFxAutoBestEnabled
+    val isFxRatesRefreshing: MutableStateFlow<Boolean> get() = session.isFxRatesRefreshing
+    val fxLastUpdatedAt: MutableStateFlow<Long?> get() = session.fxLastUpdatedAt
+    val fxLastError: MutableStateFlow<String?> get() = session.fxLastError
 
     // --- Financing & Multi-Currency Credit ---
     val principalAmount get() = financing.principalAmount
@@ -302,6 +325,21 @@ class BigDealViewModel(
     val isOcrDialogOpen: MutableStateFlow<Boolean> get() = aiExport.isOcrDialogOpen
 
     init {
+        draftStorage.restoreInto(
+            session = session,
+            financing = financing,
+            pricing = pricing,
+            workingCapital = workingCapital,
+            kamVault = kamVault,
+            recalculateAll = ::recalculateAll
+        )
+        viewModelScope.launch {
+            observeWorkspaceChanges()
+                .debounce(400L)
+                .collect {
+                    saveDraftNow()
+                }
+        }
         viewModelScope.launch {
             authRepository.currentUserFlow.collect { user ->
                 if (user != null) {
@@ -316,9 +354,107 @@ class BigDealViewModel(
     }
 
     override fun onCleared() {
+        saveDraftNow()
         super.onCleared()
         dealRepository.stopFirestoreSync()
         clientRepository.stopFirestoreSync()
+    }
+
+    private fun observeWorkspaceChanges() = merge(
+        *listOf(
+            selectedTabIndex, dealTitle, clientName, selectedCurrency, targetCurrency,
+            appLanguage, isDarkTheme, isPrivacyModeEnabled, customCurrencies,
+            fxCountryRegion, isClientCountryEnabled, fxRateMode, fxSelectedPointId,
+            isFxAutoBestEnabled, fxLastUpdatedAt, fxAvailablePoints,
+            principalAmount, downPayment, annualInterestRate, tenureMonths, paymentFrequency,
+            isGracePeriodEnabled, graceTenureMonths, graceInterestRate, postGraceInterestRate,
+            customMonthlyPayment, amortizationScheme,
+            creditPrincipal, creditTenureMonths, creditSelectedCurrencies, creditHedgeEnabled,
+            creditHedgeCostPct, creditExpectedFxShiftPct, creditCurrencyRates, creditAllocations,
+            selectedCategory, selectedCountry, fobPriceInput, targetLandedCostInput,
+            expressCoeffInput, isLandedReverseMode, customLogisticsPct, customDutyPct,
+            customVatPct, customBrokerPct, marginCostInput, marginPriceInput,
+            waterfallRsp, waterfallVat, waterfallRetailerMargin, waterfallFrontDiscount,
+            waterfallBackBonus, waterfallLogistics, waterfallCogs,
+            promoBasePrice, promoUnitCost, promoDiscountPct, promoBaseVolume, promoSimulatedLift,
+            arpu, grossMarginPct, churnRatePct, cac,
+            funnelLeads, funnelMqls, funnelSqls, funnelOpps, funnelClosedWon, avgDealValue,
+            pnlRevenue, pnlCogs, pnlOpex, pnlInvestment, pnlDurationMonths, fixedCosts,
+            unitPrice, unitCost, tornadoDeltaPct,
+            termsDealAmount, termsDays, termsAnnualRate, termsCashDiscount,
+            cashGapRevenue, cashGapCogs, cashGapPrepaidPct, cashGapSupplierDays,
+            cashGapCustomerDays, cashGapInventoryDays, cashGapOverdraftRate,
+            cashGapFactoringAdvancePct, cashGapFactoringFeePct, cashGapFactoringRatePct,
+            fxContractPrice, fxCogsForeign, fxForeignCurrency, fxSpotRate,
+            fxHedgedPct, fxHedgeRate, fxDomesticCost,
+            hurdleDealRevenue, hurdleNetProfit, hurdleTiedUpCapital, hurdleCycleDays, hurdleCorporateRate,
+            planFactPlanPrice, planFactPlanVolume, planFactPlanCost, planFactPlanDays,
+            planFactActualPrice, planFactActualVolume, planFactActualCost, planFactActualDays,
+            planFactActualPenalties, planFactCapitalRate,
+            kamBaseShelfPrice, kamBaseCogs, kamActiveScenarioType,
+            kamDealAmount, kamFillRatePct, kamPenaltyRatePct, kamTimeSlotPenalty,
+            giveConcessionType, giveConcessionValue,
+            tradeOffDealAmount, tradeOffDiscountPct, tradeOffDeferralDays, tradeOffAnnualRate,
+            basketItems, rebateActualVolume, rebateBaseMarginPct, selectedClientId,
+            dealApprovalSellingPrice, dealApprovalCostPrice, dealApprovalVolumeUnits,
+            dealApprovalDiscountPct, dealApprovalBonusPct, dealApprovalPaymentDays,
+            dealApprovalFinancingRate, dealApprovalStatus
+        ).map { it.drop(1) }.toTypedArray()
+    )
+
+    fun saveDraftNow() {
+        draftStorage.saveSnapshot(
+            session = session,
+            financing = financing,
+            pricing = pricing,
+            workingCapital = workingCapital,
+            kamVault = kamVault
+        )
+    }
+
+    fun selectTab(index: Int) {
+        session.selectedTabIndex.value = index.coerceIn(0, 5)
+    }
+
+    fun setRememberDraftEnabled(enabled: Boolean) {
+        session.isRememberDraftEnabled.value = enabled
+        draftStorage.setRememberEnabled(enabled)
+        if (enabled) {
+            saveDraftNow()
+            session.emitLocalized(
+                "Auto-save enabled for next meeting",
+                "Автосохранение данных к встрече включено"
+            )
+        } else {
+            session.emitLocalized(
+                "Auto-save disabled and draft cleared",
+                "Автосохранение выключено, черновик очищен"
+            )
+        }
+    }
+
+    fun recalculateAll() {
+        val principal = principalAmount.value.toCleanDouble() ?: 0.0
+        session.updateCurrencyConversion(principal)
+        financing.updateFinancing()
+        financing.updateMultiCreditCalculations()
+        pricing.updateLandedCostCalculations()
+        pricing.onMarginCostOrPriceChanged()
+        pricing.updateWaterfallCalculations()
+        pricing.updatePromoCalculations()
+        workingCapital.updateLtvCalculations()
+        workingCapital.updateFunnelCalculations()
+        workingCapital.updatePnlCalculations()
+        workingCapital.updatePaymentTermsCalculations()
+        workingCapital.updateCashGapCalculations()
+        workingCapital.updateFxStressCalculations()
+        workingCapital.updateHurdleRoicCalculations()
+        kamVault.updatePlanFactCalculations()
+        kamVault.updateKamCorridor()
+        kamVault.updateKamSla()
+        kamVault.updateTradeOff()
+        kamVault.updateRebateSimulation()
+        kamVault.recalculateDealScoring()
     }
 
     // --- Session & Currency Actions ---
@@ -335,17 +471,106 @@ class BigDealViewModel(
     fun toggleTheme() = session.toggleTheme()
     fun setPrivacyMode(enabled: Boolean) = session.setPrivacyMode(enabled)
 
-    fun setTargetCurrency(code: String) =
+    fun setTargetCurrency(code: String) {
         session.setTargetCurrency(code, principalAmount.value.toCleanDouble() ?: 0.0)
+        updateMultiCreditCalculations()
+    }
 
     fun updateCurrencyConversion() =
         session.updateCurrencyConversion(principalAmount.value.toCleanDouble() ?: 0.0)
 
-    fun selectActiveCurrency(code: String) =
+    fun selectActiveCurrency(code: String) {
         session.selectActiveCurrency(code, principalAmount.value.toCleanDouble() ?: 0.0)
+        updateMultiCreditCalculations()
+    }
 
-    fun addCustomCurrency(code: String, name: String, symbol: String, rateToBaseUsd: Double) =
+    fun addCustomCurrency(code: String, name: String, symbol: String, rateToBaseUsd: Double) {
         session.addCustomCurrency(code, name, symbol, rateToBaseUsd, principalAmount.value.toCleanDouble() ?: 0.0)
+        updateMultiCreditCalculations()
+    }
+
+    fun setClientCountryEnabled(enabled: Boolean) {
+        session.isClientCountryEnabled.value = enabled
+        if (!enabled) {
+            session.fxRateMode.value = FxRateMode.MARKET_BANK
+        }
+        refreshLiveFxRates()
+    }
+
+    fun setFxCountryRegion(region: FxCountryRegion) {
+        session.fxCountryRegion.value = region
+        refreshLiveFxRates()
+    }
+
+    fun setFxRateMode(mode: FxRateMode) {
+        session.fxRateMode.value = mode
+        if (session.fxAvailablePoints.value.isNotEmpty()) {
+            val chosen = session.applyBestOrSelectedFxPoint(principalAmount.value.toCleanDouble() ?: 0.0)
+            updateMultiCreditCalculations()
+            if (chosen != null) {
+                session.emitLocalized(
+                    "FX mode: ${chosen.providerNameEn}",
+                    "Режим курса: ${chosen.providerNameRu}"
+                )
+            }
+        } else {
+            refreshLiveFxRates()
+        }
+    }
+
+    fun setFxAutoBestEnabled(enabled: Boolean) {
+        val chosen = session.setFxAutoBestEnabled(enabled, principalAmount.value.toCleanDouble() ?: 0.0)
+        if (chosen != null) {
+            updateMultiCreditCalculations()
+            session.emitLocalized(
+                "Auto-selected best point: ${chosen.providerNameEn}",
+                "Автовыбор лучшей точки: ${chosen.providerNameRu}"
+            )
+        }
+    }
+
+    fun selectManualFxPoint(pointId: String) {
+        val chosen = session.selectManualFxPoint(pointId, principalAmount.value.toCleanDouble() ?: 0.0)
+        if (chosen != null) {
+            updateMultiCreditCalculations()
+            session.emitLocalized(
+                "Selected rate point: ${chosen.providerNameEn}",
+                "Выбрана точка курса: ${chosen.providerNameRu}"
+            )
+        }
+    }
+
+    fun refreshLiveFxRates() {
+        if (session.isFxRatesRefreshing.value) return
+        viewModelScope.launch {
+            session.isFxRatesRefreshing.value = true
+            session.fxLastError.value = null
+            try {
+                val region = session.fxCountryRegion.value
+                val useCountry = session.isClientCountryEnabled.value
+                val outcome = fxRatesService.fetchRatesForCountry(region, useCountry)
+                if (outcome.points.isNotEmpty()) {
+                    session.fxAvailablePoints.value = outcome.points
+                    session.fxLastUpdatedAt.value = outcome.fetchedAtMillis
+                    val chosen = session.applyBestOrSelectedFxPoint(principalAmount.value.toCleanDouble() ?: 0.0)
+                    updateMultiCreditCalculations()
+                    if (chosen != null) {
+                        session.emitLocalized(
+                            "Updated (${outcome.points.size} points): ${chosen.providerNameEn}",
+                            "Курсы обновлены (${outcome.points.size} точек): ${chosen.providerNameRu}"
+                        )
+                    }
+                } else {
+                    val errRu = "Не удалось загрузить онлайн-курсы (проверьте интернет)"
+                    val errEn = "Unable to fetch live FX rates (check connection)"
+                    session.fxLastError.value = if (session.appLanguage.value == AppLanguage.RU) errRu else errEn
+                    session.emitLocalized(errEn, errRu)
+                }
+            } finally {
+                session.isFxRatesRefreshing.value = false
+            }
+        }
+    }
 
     fun formatCurrency(amount: Double): String = session.formatCurrency(amount)
 
@@ -380,7 +605,7 @@ class BigDealViewModel(
 
     fun applyCreditHedgedRateToFinancing() {
         val hedgedRate = multiCreditResult.value.weightedEffectiveRateWithHedgePct
-        val rateFormatted = String.format(Locale.US, "%.1f", hedgedRate)
+        val rateFormatted = session.formatCleanNum(hedgedRate)
         annualInterestRate.value = rateFormatted
         updateFinancing()
         dealApprovalFinancingRate.value = rateFormatted
@@ -732,6 +957,7 @@ class BigDealViewModel(
         paymentFrequency.value = deal.frequency
 
         updateFinancing()
+        updateMultiCreditCalculations()
         onMarginCostOrPriceChanged(
             newCost = session.formatCleanNum(deal.dealValue * (1.0 - deal.marginPct / 100.0)),
             newPrice = session.formatCleanNum(deal.dealValue)
@@ -936,6 +1162,7 @@ class BigDealViewModel(
         recalculateDealScoring()
         updatePaymentTermsCalculations()
         updateCurrencyConversion()
+        updateMultiCreditCalculations()
         isOcrDialogOpen.value = false
 
         session.emitLocalized(

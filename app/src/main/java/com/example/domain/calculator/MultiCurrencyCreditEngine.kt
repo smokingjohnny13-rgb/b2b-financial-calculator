@@ -113,11 +113,20 @@ object MultiCurrencyCreditEngine {
             val share = normalizedShares[i]
             val legCurr = CurrencyEngine.findByCode(input.currencyCode, rates)
 
-            // Cross-rate: how many units of legCurr per 1 baseCurr
-            val spotRate = CurrencyEngine.getCrossRate(baseCurrencyCode, input.currencyCode, rates)
+            // Use exact unrounded cross-rate internally so low-unit base currencies (e.g. KZT, JPY) avoid truncation drift
+            val exactSpotRate = when {
+                input.currencyCode.equals(baseCurrencyCode, ignoreCase = true) -> 1.0
+                baseCurr.rateToBaseUsd > 0.0 -> legCurr.rateToBaseUsd / baseCurr.rateToBaseUsd
+                else -> 1.0
+            }
+            val displaySpotRate = if (exactSpotRate < 0.1) {
+                round(exactSpotRate * 1_000_000.0) / 1_000_000.0
+            } else {
+                r4(exactSpotRate)
+            }
 
             val legPrincipalInBase = safeAmount * share
-            val legPrincipalInCurrency = legPrincipalInBase * spotRate
+            val legPrincipalInCurrency = legPrincipalInBase * exactSpotRate
 
             val borrowRate = max(0.0, input.annualRatePct) / 100.0
             val hedgeCostRate = max(0.0, input.hedgeCostAnnualPct) / 100.0
@@ -135,18 +144,21 @@ object MultiCurrencyCreditEngine {
             // 1. Hedged Repayment:
             // Hedging fixes forward cross-rate on payment day, protecting completely against currency depreciation.
             // Effective cost = Borrow Rate + Hedge Premium (annualized)
-            val effectiveHedgedRate = borrowRate + (if (input.isHedged && !input.currencyCode.equals(baseCurrencyCode, ignoreCase = true)) hedgeCostRate else 0.0)
+            val isForeignLeg = !input.currencyCode.equals(baseCurrencyCode, ignoreCase = true)
+            val appliesHedge = input.isHedged && isForeignLeg
+            val effectiveHedgedRate = borrowRate + (if (appliesHedge) hedgeCostRate else 0.0)
+            val totalRepaymentInBaseAtSpot = if (tenureYears <= 1.0) {
+                legPrincipalInBase * (1.0 + borrowRate * tenureYears)
+            } else {
+                legPrincipalInBase * (1.0 + borrowRate).pow(tenureYears)
+            }
             val totalRepaymentInBaseHedged = if (tenureYears <= 1.0) {
                 legPrincipalInBase * (1.0 + effectiveHedgedRate * tenureYears)
             } else {
                 legPrincipalInBase * (1.0 + effectiveHedgedRate).pow(tenureYears)
             }
-            val hedgeCostInBase = if (input.isHedged && !input.currencyCode.equals(baseCurrencyCode, ignoreCase = true)) {
-                if (tenureYears <= 1.0) {
-                    legPrincipalInBase * hedgeCostRate * tenureYears
-                } else {
-                    legPrincipalInBase * ((1.0 + hedgeCostRate).pow(tenureYears) - 1.0)
-                }
+            val hedgeCostInBase = if (appliesHedge) {
+                max(0.0, totalRepaymentInBaseHedged - totalRepaymentInBaseAtSpot)
             } else {
                 0.0
             }
@@ -154,26 +166,22 @@ object MultiCurrencyCreditEngine {
             // 2. Unhedged Repayment:
             // Time-horizon compounded FX shift:
             // Expected FX shift is annualized (% per annum). Over tenureYears, cumulative shift is (1 + shift)^t - 1.
-            val annualFxShift = input.expectedFxShiftPct / 100.0
+            val annualFxShift = max(-99.0, input.expectedFxShiftPct) / 100.0
             val cumulativeFxShift = if (tenureYears > 0.0) {
                 (1.0 + annualFxShift).pow(tenureYears) - 1.0
             } else {
                 0.0
             }
 
-            val endRateBasePerLeg = if (spotRate > 0.0) {
-                val basePerUnitStart = 1.0 / spotRate
+            val endRateBasePerLeg = if (exactSpotRate > 0.0) {
+                val basePerUnitStart = 1.0 / exactSpotRate
                 basePerUnitStart * (1.0 + cumulativeFxShift)
             } else {
                 1.0
             }
 
-            val totalRepaymentInBaseUnhedged = if (input.currencyCode.equals(baseCurrencyCode, ignoreCase = true)) {
-                if (tenureYears <= 1.0) {
-                    legPrincipalInBase * (1.0 + borrowRate * tenureYears)
-                } else {
-                    legPrincipalInBase * (1.0 + borrowRate).pow(tenureYears)
-                }
+            val totalRepaymentInBaseUnhedged = if (!isForeignLeg) {
+                totalRepaymentInBaseAtSpot
             } else {
                 totalRepaymentInCurrency * endRateBasePerLeg
             }
@@ -191,7 +199,7 @@ object MultiCurrencyCreditEngine {
                 CurrencyCreditLegResult(
                     currencyCode = input.currencyCode,
                     currencySymbol = legCurr.symbol,
-                    spotCrossRate = r4(spotRate),
+                    spotCrossRate = displaySpotRate,
                     allocationPct = r2(share * 100.0),
                     principalInBase = r2(legPrincipalInBase),
                     principalInCurrency = r2(legPrincipalInCurrency),
