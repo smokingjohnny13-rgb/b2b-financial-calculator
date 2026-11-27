@@ -19,7 +19,7 @@ android {
 
     val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
     versionCode = 100 + ciRunNumber
-    versionName = System.getenv("RELEASE_VERSION_NAME") ?: "1.4.0"
+    versionName = System.getenv("RELEASE_VERSION_NAME") ?: "1.4.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
