@@ -79,6 +79,7 @@ import com.example.ui.theme.ExecutiveSurface
 import com.example.ui.theme.ExecutiveSurfaceVariant
 import com.example.ui.theme.GoldAccent
 import com.example.ui.viewmodel.BigDealViewModel
+import com.example.util.toCleanDouble
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -474,15 +475,28 @@ fun FinancingFxScreen(
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
 
+                            val principalVal = (principal.toCleanDouble() ?: 0.0).coerceAtLeast(0.0)
+                            val downVal = (downPayment.toCleanDouble() ?: 0.0).coerceAtLeast(0.0)
+                            val netLoanPrincipal = (principalVal - downVal).coerceAtLeast(0.0)
+                            val overpaymentPct = if (netLoanPrincipal > 0.0) {
+                                (amortization.totalInterest / netLoanPrincipal) * 100.0
+                            } else 0.0
+                            val pctPrefix = if (overpaymentPct > 0.0) "+" else ""
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
                                     Text(
                                         text = tr("TOTAL PAYMENTS", "ИТОГО ВЫПЛАТ"),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = viewModel.formatCurrency(amortization.totalPayments),
@@ -490,29 +504,79 @@ fun FinancingFxScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         softWrap = false,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (downVal > 0.0) {
+                                            tr(
+                                                "Total w/ DP: ${viewModel.formatCurrency(amortization.totalPayments + downVal)}",
+                                                "Всего с ПВ: ${viewModel.formatCurrency(amortization.totalPayments + downVal)}"
+                                            )
+                                        } else {
+                                            tr(
+                                                "Principal: ${viewModel.formatCurrency(netLoanPrincipal)}",
+                                                "Тело: ${viewModel.formatCurrency(netLoanPrincipal)}"
+                                            )
+                                        },
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalAlignment = Alignment.End
+                                    modifier = Modifier.weight(1.1f),
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     Text(
-                                        text = tr("FINANCING INTEREST", "ПРОЦЕНТЫ БАНКУ"),
+                                        text = tr("OVERPAYMENT (INTEREST)", "ПЕРЕПЛАТА (ПРОЦЕНТЫ)"),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.End
-                                    )
-                                    Text(
-                                        text = "+${viewModel.formatCurrency(amortization.totalInterest)}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GoldAccent,
-                                        softWrap = false,
+                                        textAlign = TextAlign.End,
                                         maxLines = 1,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                        overflow = TextOverflow.Ellipsis
                                     )
+                                    Row(
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "+${viewModel.formatCurrency(amortization.totalInterest)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = GoldAccent,
+                                            softWrap = false,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+                                        if (netLoanPrincipal > 0.0) {
+                                            Text(
+                                                text = " ($pctPrefix${String.format(Locale.US, "%.1f", overpaymentPct)}%)",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = GoldAccent.copy(alpha = 0.9f),
+                                                softWrap = false,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                    if (downVal > 0.0) {
+                                        Text(
+                                            text = tr(
+                                                "Principal: ${viewModel.formatCurrency(netLoanPrincipal)}",
+                                                "Тело: ${viewModel.formatCurrency(netLoanPrincipal)}"
+                                            ),
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.End,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
 
