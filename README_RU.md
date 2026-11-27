@@ -319,6 +319,7 @@ firebase emulators:exec --only firestore "node --test firestore.test.js"
 - **Репозиторий и релиз GitHub (`v1.4.2`)**: [github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.2](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.2)
 - **AlternativeTo (скачивание и отзывы)**: [alternativeto.net/software/notabigdeal/](https://alternativeto.net/software/notabigdeal/)
 - **LinkedIn (вопросы коммерческого лицензирования)**: [www.linkedin.com/in/snitkor](https://www.linkedin.com/in/snitkor)
+- **Политика конфиденциальности (Privacy Policy)**: [smokingjohnny13-rgb.github.io/b2b-financial-calculator/privacy.html](https://smokingjohnny13-rgb.github.io/b2b-financial-calculator/privacy.html)
 - **Название приложения**: **NotaBigDeal** (`v1.4.2` Signed Release)
 - **Лицензия**: Dual-Licensed — [GNU AGPLv3](LICENSE) / Commercial License (см. [NOTICE](NOTICE))
 

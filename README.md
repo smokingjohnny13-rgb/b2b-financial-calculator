@@ -319,6 +319,7 @@ Developed for commercial directors, enterprise Key Account Managers, and financi
 - **GitHub Repository & Release (`v1.4.2`)**: [github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.2](https://github.com/smokingjohnny13-rgb/b2b-financial-calculator/releases/tag/v1.4.2)
 - **AlternativeTo (Download & Community Page)**: [alternativeto.net/software/notabigdeal/](https://alternativeto.net/software/notabigdeal/)
 - **LinkedIn (Commercial Licensing & Inquiries)**: [www.linkedin.com/in/snitkor](https://www.linkedin.com/in/snitkor)
+- **Privacy Policy**: [smokingjohnny13-rgb.github.io/b2b-financial-calculator/privacy.html](https://smokingjohnny13-rgb.github.io/b2b-financial-calculator/privacy.html)
 - **App Name**: **NotaBigDeal** (`v1.4.2` Signed Release)
 - **License**: Dual-Licensed — [GNU AGPLv3](LICENSE) / Commercial License (see [NOTICE](NOTICE))
 
